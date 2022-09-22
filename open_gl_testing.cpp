@@ -52,7 +52,7 @@ int main()
 
     // build and compile our shader program
     // ------------------------------------
-    Shader ourShader("3.3.shader.vs", "3.3.shader.fs"); // you can name your shader files however you like
+    Shader ourShader("my_shader.vs", "my_shader.fs"); // you can name your shader files however you like
 
     // set up vertex data (and buffer(s)) and configure vertex attributes
     // ------------------------------------------------------------------
@@ -67,7 +67,7 @@ int main()
     // last two args length and width of the window
 
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback); // registering our callback function
-    /**/
+    /*
     // shader
     unsigned int vertexShader;
     vertexShader = glCreateShader(GL_VERTEX_SHADER);
@@ -109,7 +109,7 @@ int main()
     }
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
-
+    */
     //triangle
     float vertices_tri[] = {
      0.5f,  0.5f, 0.0f,  // top right
@@ -132,7 +132,7 @@ int main()
     // glEnableVertexAttribArray(0);
 
     // 2. use our shader program when we want to render an object
-    glUseProgram(shaderProgram);
+    //UseProgram(shaderProgram);
     // 3. now draw the object 
 
     // Vertex array object holds VBOs
@@ -164,7 +164,7 @@ int main()
         glClear(GL_COLOR_BUFFER_BIT);
 
         // draws triangle        
-        glUseProgram(shaderProgram);
+        ourShader.use();
         glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
