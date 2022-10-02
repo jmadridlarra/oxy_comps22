@@ -2,13 +2,17 @@
 #include <GLFW/glfw3.h>
 #include <iostream> // to use cout stream
 #include <C:/Users/joaqu/OneDrive/Desktop/comps/shader_s.h> // use our in house shader
+#include <C:/Users/joaqu/OneDrive/Desktop/comps/projection.h>
 #include <C:/Users/joaqu/OneDrive/Desktop/comps/resource_manager.h>
+// to get coordinates
+#include <windows.h>
+#pragma comment(lib, "user32.lib")
 
 //C:\Users\joaqu\source\repos\openGL_testing\openGL_testing\shader_s.h
 
 // for image textures
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+// #define STB_IMAGE_IMPLEMENTATION
+// #include "stb_image.h"
 
 // for movement
 #include <glm/glm.hpp>
@@ -22,6 +26,8 @@ void processInput(GLFWwindow* window);
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 
+Projection Art(SCR_WIDTH, SCR_HEIGHT);
+
 int main()
 {
     glfwInit(); // initializes glfw
@@ -32,7 +38,8 @@ int main()
     //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // for mac users
 
     GLFWwindow* window = glfwCreateWindow(800, 600, "LearnOpenGL", NULL, NULL); // creates a glfwWindow struct pointer called window
-    // the name of the window is "LearnOpenGL"
+                                                                                // the name of the window is "LearnOpenGL"
+    // HWND glfwGetWin32Window(GLFWwindow * window); // used to get mouse pointer
     if (window == NULL)
     {
         std::cout << "Failed to create GLFW window" << std::endl; // sends error message to the stream
@@ -48,6 +55,14 @@ int main()
         return -1;
     }
 
+    // initialize game
+    // ---------------
+    Art.Init();
+
+    // deltaTime variables
+    // -------------------
+    float deltaTime = 1.0f;
+    float lastFrame = 0.0f;
     // build and compile our shader program
     // ------------------------------------
     Shader ourShader = ResourceManager::LoadShader("../../../../OneDrive/Desktop/comps/my_shader.vs", "C:/Users/joaqu/OneDrive/Desktop/comps/my_shader.fs", nullptr, "test"); // you can name your shader files however you like
@@ -74,7 +89,7 @@ int main()
 
     // load and create a texture 
     // -------------------------
-    unsigned int texture2; //, texture2;
+    //unsigned int texture2; //, texture2;
     // texture 1
     // ---------
         /*
@@ -104,6 +119,7 @@ int main()
     */
     // texture 2
     // ---------
+    /*
     int width, height, nrChannels;
     glGenTextures(1, &texture2);
     glBindTexture(GL_TEXTURE_2D, texture2);
@@ -130,7 +146,7 @@ int main()
         std::cout << "Failed to load texture" << std::endl;
     }
     stbi_image_free(data);
-
+    */
     // tell opengl for each sampler to which texture unit it belongs to (only has to be done once)
     // -------------------------------------------------------------------------------------------
     
@@ -216,7 +232,7 @@ int main()
 
     ourShader.use(); // don't forget to activate the shader before setting uniforms!  
     //glUniform1i(glGetUniformLocation(ourShader.ID, "texture1"), 0); // set it manually
-    ourShader.setInt("texture2", 1); // or with shader class
+    //ourShader.setInt("texture2", 1); // or with shader class
 
     // render loop
     while (!glfwWindowShouldClose(window))
@@ -227,6 +243,8 @@ int main()
         // rendering commands here
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         // draws triangle        
         ourShader.use();
@@ -244,16 +262,15 @@ int main()
         */
        // glActiveTexture(GL_TEXTURE0);
         //glBindTexture(GL_TEXTURE_2D, texture1);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, texture2);
-
+        //glActiveTexture(GL_TEXTURE1);
+        //glBindTexture(GL_TEXTURE_2D, texture2);
         // applies transformation matrix
         glm::vec4 vec(1.0f, 0.0f, 0.0f, 1.0f);
 
         glm::mat4 trans = glm::mat4(1.0f);
-        trans = glm::translate(trans, (float)glfwGetTime(), glm::vec3(0.0001f, 0.0001f, 0.0f));
+        //trans = glm::translate(trans, (float)glfwGetTime(), glm::vec3(0.0001f, 0.0001f, 0.0f));
         //trans = glm::scale(trans, glm::vec3(0.5f, 0.5f, 0.5f));
-        //trans = glm::rotate(trans, (float)glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f));
+        trans = glm::rotate(trans, (float)glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f));
 
         //glm::mat4 trans = glm::mat4(0.5f);
         //trans = glm::rotate(trans, glm::radians(90.0f), glm::vec3(0.0, 0.0, 1.0));
@@ -268,6 +285,21 @@ int main()
 
         // check and call events and swap the buffers
         glfwPollEvents();
+        
+        // manage user input
+        // -----------------
+        Art.ProcessInput(window, deltaTime); // add window for cursor
+
+        // update game state
+        // -----------------
+        Art.Update(deltaTime);
+
+        // render
+        // ------
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        Art.Render();
+
         glfwSwapBuffers(window);
     }
 
