@@ -20,6 +20,18 @@ enum ProjectionState {
     PROJECTION_WIN
 };
 
+// Defines a Collision typedef that represents collision data
+//typedef std::tuple<bool, Direction, glm::vec2> Collision; // <collision?, what direction?, difference vector center - closest point>
+
+// Initial size of the player paddle
+const glm::vec2 PLAYER_SIZE(100.0f, 20.0f);
+// Initial velocity of the player paddle
+const float PLAYER_VELOCITY(1.0f);
+// Initial velocity of the Ball
+const glm::vec2 INITIAL_BALL_VELOCITY(0.1f, -0.1f);
+// Radius of the ball object
+const float BALL_RADIUS = 12.5f;
+
 // Projection holds all game-related state and functionality.
 // Combines all game-related data into a single class for
 // easy access to each of the components and manageability.

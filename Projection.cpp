@@ -9,20 +9,20 @@
 #include "projection.h"
 #include "sprite_renderer.h"
 #include "resource_manager.h"
+#include "circle_object.h"
 #include <windows.h>
 #pragma comment(lib, "user32.lib")
 #include <iostream>
 #include <sstream>
 #include <fstream>
 
-// Initial size of the player hand paddle
-const glm::vec2 PLAYER_SIZE(40.0f, 40.0f);
-// Initial velocity of the player paddle
-const float PLAYER_VELOCITY(1.0f);
-
 GameObject* Player;
 // Game-related State data
 SpriteRenderer* Renderer;
+
+const int number_of_circles = 50;
+
+CircleObject* circles[number_of_circles]; // make lots of circles?
 
 Projection::Projection(unsigned int width, unsigned int height)
     : State(PROJECTION_ACTIVE), Keys(), Width(width), Height(height)
@@ -35,6 +35,7 @@ Projection::~Projection()
     delete Renderer;
     delete Player;
 }
+
 
 void Projection::Init()
 {
@@ -72,13 +73,26 @@ void Projection::Init()
         this->Height - PLAYER_SIZE.y
         );
     Player = new GameObject(playerPos, PLAYER_SIZE, ResourceManager::GetTexture("hand_paddle"));
+
+    glm::vec2 ballPos = playerPos + glm::vec2(PLAYER_SIZE.x / 2.0f - BALL_RADIUS,
+        -BALL_RADIUS * 2.0f);
+    
+    for (int i = 0; i < number_of_circles; i++) {
+        glm::vec2 BALL_VELOCITY((i / 25.0f) + 0.1f, (i / -25.f) + 0.1f);
+        circles[i] = new CircleObject(ballPos, BALL_RADIUS, BALL_VELOCITY, //INITIAL_BALL_VELOCITY,
+            ResourceManager::GetTexture("circle"));
+    }
+    
 }
 
 void Projection::Update(float dt)
-{
-
+{   
+    // do this for all the circles
+    for (int i = 0; i < number_of_circles; i++) {
+        circles[i]->Move(dt, this->Width, this->Height);
+    }
 }
-#define GLFW_KEY_A  65
+
 void Projection::ProcessInput(GLFWwindow* window, float dt) // add window 
 {   // handles user input, rn keyboard activated, need to figure out how to make it webcam activated.
 
@@ -138,6 +152,8 @@ void Projection::ProcessInput(GLFWwindow* window, float dt) // add window
         //{
             //p.x and p.y are now relative to hwnd's client area
         //}
+
+        // 
     }
 }
 
@@ -156,5 +172,9 @@ void Projection::Render()
         // draw level
         this->Levels[this->Level].Draw(*Renderer);
         Player->Draw(*Renderer);
+
+        for (int i = 0; i < number_of_circles; i++) {
+            circles[i]->Draw(*Renderer);
+        }
     }
 }
