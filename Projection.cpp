@@ -157,6 +157,33 @@ void Projection::ProcessInput(GLFWwindow* window, float dt) // add window
     }
 }
 
+bool CheckCollision(GameObject& one, GameObject& two) // AABB - AABB collision
+{
+    // collision x-axis?
+    bool collisionX = one.Position.x + one.Size.x >= two.Position.x &&
+        two.Position.x + two.Size.x >= one.Position.x;
+    // collision y-axis?
+    bool collisionY = one.Position.y + one.Size.y >= two.Position.y &&
+        two.Position.y + two.Size.y >= one.Position.y;
+    // collision only if on both axes
+    return collisionX && collisionY;
+}
+
+void Projection::DoCollisions()
+{
+    for (int i = 0; i< number_of_circles i++;)
+    {
+        if (!circle.Destroyed)
+        {
+            if (CheckCollision(*Player, circle))
+            {
+                if (!circle.IsSolid)
+                    circle.Destroyed = true;
+            }
+        }
+    }
+}
+
 void Projection::Render()
 {
     //Texture2D myTexture;

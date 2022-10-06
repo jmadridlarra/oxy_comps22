@@ -53,6 +53,7 @@ public:
     void ProcessInput(GLFWwindow* window, float dt); //adding window for key input
     void Update(float dt);
     void Render();
+    void DoCollisions();
 };
 
 #endif
