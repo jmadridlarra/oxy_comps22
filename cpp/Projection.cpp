@@ -40,7 +40,7 @@ Projection::~Projection()
 void Projection::Init()
 {
     // load shaders
-    ResourceManager::LoadShader("C:/Users/joaqu/OneDrive/Desktop/comps/my_shader.vs", "C:/Users/joaqu/OneDrive/Desktop/comps/my_shader.fs", nullptr, "sprite");
+    ResourceManager::LoadShader("C:/Users/joaqu/OneDrive/Desktop/comps/cpp/my_shader.vs", "C:/Users/joaqu/OneDrive/Desktop/comps/cpp/my_shader.fs", nullptr, "sprite");
     // configure shaders
     glm::mat4 projection = glm::ortho(0.0f, static_cast<float>(this->Width),
         static_cast<float>(this->Height), 0.0f, -1.0f, 1.0f);
@@ -51,14 +51,14 @@ void Projection::Init()
     myShader = ResourceManager::GetShader("sprite");
     Renderer = new SpriteRenderer(myShader);
     // load textures
-    ResourceManager::LoadTexture("../../../../OneDrive/Desktop/comps/textures/trans_circle.png", true, "circle");
+    ResourceManager::LoadTexture("../../../../OneDrive/Desktop/comps/cpp/textures/trans_circle.png", true, "circle");
     // load textures
-    ResourceManager::LoadTexture("../../../../OneDrive/Desktop/comps/textures/hand.png", true, "hand_paddle"); // now it is black
+    ResourceManager::LoadTexture("../../../../OneDrive/Desktop/comps/cpp/textures/hand.png", true, "hand_paddle"); // now it is black
     //ResourceManager::LoadTexture("textures/awesomeface.png", true, "face"); use circle insted
     //ResourceManager::LoadTexture("textures/block.png", false, "block");
     //ResourceManager::LoadTexture("textures/block_solid.png", false, "block_solid");
     // load levels
-    ProjectionLevel one; one.Load("../../../../OneDrive/Desktop/comps/levels/one.lvl", this->Width, this->Height / 2);
+    ProjectionLevel one; one.Load("../../../../OneDrive/Desktop/comps/cpp/levels/one.lvl", this->Width, this->Height / 2);
     //ProjectionLevel two; two.Load("levels/two.lvl", this->Width, this->Height / 2);
     //ProjectionLevel three; three.Load("levels/three.lvl", this->Width, this->Height / 2);
     //ProjectionLevel four; four.Load("levels/four.lvl", this->Width, this->Height / 2);
@@ -171,17 +171,17 @@ bool CheckCollision(GameObject& one, GameObject& two) // AABB - AABB collision
 
 void Projection::DoCollisions()
 {
-    for (int i = 0; i< number_of_circles i++;)
-    {
-        if (!circle.Destroyed)
-        {
-            if (CheckCollision(*Player, circle))
-            {
-                if (!circle.IsSolid)
-                    circle.Destroyed = true;
-            }
-        }
-    }
+    //for (int i = 0; i< number_of_circles i++;)
+    //{
+      //  if (!circle.Destroyed)
+        //{
+          //  if (CheckCollision(*Player, circle))
+            //{
+              //  if (!circle.IsSolid)
+                //    circle.Destroyed = true;
+        //    }
+      //  }
+    //}
 }
 
 void Projection::Render()

@@ -1,9 +1,9 @@
 #include <glad/glad.h> // function pointer manager 
 #include <GLFW/glfw3.h>
 #include <iostream> // to use cout stream
-#include <C:/Users/joaqu/OneDrive/Desktop/comps/shader_s.h> // use our in house shader
-#include <C:/Users/joaqu/OneDrive/Desktop/comps/projection.h>
-#include <C:/Users/joaqu/OneDrive/Desktop/comps/resource_manager.h>
+#include <C:/Users/joaqu/OneDrive/Desktop/comps/cpp/shader_s.h> // use our in house shader
+#include <C:/Users/joaqu/OneDrive/Desktop/comps/cpp/projection.h>
+#include <C:/Users/joaqu/OneDrive/Desktop/comps/cpp/resource_manager.h>
 // to get coordinates
 #include <windows.h>
 #pragma comment(lib, "user32.lib")
@@ -65,7 +65,7 @@ int main()
     float lastFrame = 0.0f;
     // build and compile our shader program
     // ------------------------------------
-    Shader ourShader = ResourceManager::LoadShader("../../../../OneDrive/Desktop/comps/my_shader.vs", "C:/Users/joaqu/OneDrive/Desktop/comps/my_shader.fs", nullptr, "test"); // you can name your shader files however you like
+    Shader ourShader = ResourceManager::LoadShader("../../../../OneDrive/Desktop/comps/cpp/my_shader.vs", "C:/Users/joaqu/OneDrive/Desktop/comps/cpp/my_shader.fs", nullptr, "test"); // you can name your shader files however you like
 
     // projection matrix allows us to use 0x800 0x600
     glm::mat4 projection = glm::ortho(0.0f, 800.0f, 600.0f, 0.0f, -1.0f, 1.0f);
