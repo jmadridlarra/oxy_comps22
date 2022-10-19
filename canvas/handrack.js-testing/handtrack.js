@@ -4,18 +4,36 @@ const context = canvas.getContext("2d");
 let trackButton = document.getElementById("trackbutton");
 let updateNote = document.getElementById("updatenote");
 canvas.style.background = "red";
+canvas.width = 1500;
+canvas.height = 750;
 
 let isVideo = false;
 let model = null;
 let showVideo = false;
 let bubbleX = canvas.width / 2;
 let bubbleY = canvas.height / 2;
+let totalCircles = 30;
+const circleList = [];
 const modelParams = {
     flipHorizontal: true,   // flip e.g for video  
     maxNumBoxes: 7,        // maximum number of boxes to detect
     iouThreshold: 0.5,      // ioU threshold for non-max suppression
     scoreThreshold: 0.65,    // confidence threshold for predictions.
 };
+
+const circle = {
+    isVisible : true,
+    xCoords: canvas.width / 2,
+    yCoords: canvas.height / 2,
+    nearHand: false,
+    radius: 40,
+    yVelocity: 10,
+    xVelocity: 10,
+    // getNextCoords : function(){
+    //     console.log(`My name is ${this.name}. Am I
+    //       studying?: ${this.isStudying}.`)
+    // }
+}
 
 // starts video
 function startVideo() {
@@ -36,6 +54,20 @@ function startVideo() {
     });
 }
 
+function initCircles() {
+    bubbleRadius = (canvas.width / totalCircles - 10) /2;
+    for (let i = 0; i < totalCircles; i++){
+        circleList[i] = Object.create(circle);
+        circleList[i].xCoords = Math.floor(Math.random() * canvas.width);
+        circleList[i].yCoords = Math.floor(Math.random() * canvas.height);
+        circleList[i].radius = bubbleRadius;
+    }
+}
+
+function startGame() {
+    initCircles();
+    toggleVideo();
+}
 // button to turn video on or off
 function toggleVideo() {
     if (!isVideo) {
@@ -63,13 +95,17 @@ function runDetection() {
         if (predictions.length != 0) {
             getMouseCoord(predictions, canvas, context, video);   
         }
-        makeBubble(canvas, predictions, video);
+        updateFrame(canvas, predictions, video);
         if (isVideo) {
             requestAnimationFrame(runDetection);
         }
     });
 }
 
+function updateFrame(canvas, predictions, video){
+    getNewCircleCoords(canvas, predictions, video);
+    
+}
 function translateCoords(vidCoordsX, vidCoordsY, mediasource, canvas){
     // translates vid coords into canvas coords
     var x = vidCoordsX / mediasource.width * canvas.width;
@@ -80,18 +116,17 @@ function translateCoords(vidCoordsX, vidCoordsY, mediasource, canvas){
 function getMouseCoord(predictions, canvas, context, mediasource){
     if (!showVideo){
         context.clearRect(0, 0, canvas.width, canvas.height);
-        canvas.width = 1500;//mediasource.width;
-        canvas.height = 750;//mediasource.height;
         // console.log("render", mediasource.width, mediasource.height);
         canvas.style.height =
         parseInt(canvas.style.width) *
             (mediasource.height / mediasource.width).toFixed(2) +
         "px";
         // console.log("render", canvas.style.width, canvas.style.height);
-
         context.save();
     }
     else{
+        canvas.width = mediasource.width;
+        canvas.height = mediasource.height;
         model.renderPredictions(predictions, canvas, context, video);
     }
     // creates the small circles for the predictions
@@ -123,9 +158,66 @@ function makeBubble(canvas, predictions, mediasource) {
     context.stroke();
 }
 
+function getNewCircleCoords(canvas, predictions, mediasource){
+    for (let i = 0; i < predictions.length; i++) {
+        var convertedCoords = translateCoords(predictions[i].bbox[0], predictions[i].bbox[1], mediasource, canvas);
+          
+        for (let j = 0; j < totalCircles; j++) {
+            var xDist = Math.abs(convertedCoords[0] - circleList[j].xCoords);
+            var yDist = Math.abs(convertedCoords[1] - circleList[j].yCoords);
+
+            if (circleList[j].xCoords > circleList[j].radius){
+                onLeft = false;
+            }else{
+                onLeft = true;
+            } 
+            if (circleList[j].xCoords < canvas.width - circleList[j].radius){
+                onRight = false;
+            }
+            else{
+                onRight = true;
+            }
+            if (circleList[j].yCoords > circleList[j].radius){
+                onBottom = false;
+            } else{
+                onBottom = true;   
+            }    
+            if (circleList[j].yCoords < canvas.height - circleList[j].radius){
+                onTop = false;
+            } else {
+                onTop = true;
+            }
+
+            if (xDist > 4 && xDist < 150 && yDist > 4 && yDist < 150 && predictions[i].label != 'face' && !onTop && !onBottom && !onRight && !onLeft){
+                circleList[j].nearHand = true;
+                circleList[j].xVelocity = (200 * Math.sign((convertedCoords[0] - circleList[j].xCoords) * -1)) / xDist; // TODO calculate velocity
+                circleList[j].yVelocity = (200 * Math.sign((convertedCoords[1] - circleList[j].yCoords) * -1)) / yDist;  
+            }
+            else {
+                circleList[j].nearHand = false;
+                if (onTop || onBottom){
+                    circleList[j].yVelocity = circleList[j].yVelocity * -1;
+                }
+                if (onLeft || onRight){
+                    circleList[j].xVelocity = circleList[j].xVelocity * -1;
+                }
+            }
+            circleList[j].xCoords = circleList[j].xCoords + circleList[j].xVelocity;
+            circleList[j].yCoords = circleList[j].yCoords + circleList[j].yVelocity;
+            makeCircle(circleList[j].xCoords, circleList[j].yCoords, circleList[j].radius);
+        }
+        
+    }
+}
+
+function makeCircle(x, y, circleRadius) {
+    context.beginPath();
+    context.arc(x, y, circleRadius, 0, 2 * Math.PI);
+    context.stroke();
+}
+
 function reset(){
-    bubbleX = canvas.width / 2
-    bubbleY = canvas.height / 2
+    initCircles();
 }
 
 // Load the model.
