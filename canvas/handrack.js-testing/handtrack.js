@@ -29,6 +29,10 @@ const circle = {
     radius: 40,
     yVelocity: 10,
     xVelocity: 10,
+    r: 255,
+    g: 165,
+    b: 0,
+    a: 1, 
     // getNextCoords : function(){
     //     console.log(`My name is ${this.name}. Am I
     //       studying?: ${this.isStudying}.`)
@@ -158,13 +162,38 @@ function makeBubble(canvas, predictions, mediasource) {
     context.stroke();
 }
 
+function setCircleColor(circle){
+    if (circle.nearHand){
+        circle.r = 0;
+        //circle.g = 255;
+        //circle.b = 0;
+        if (circle.xCoords >= circle.yCoords){
+            // 10-50 yellow 255, 255, 0; green 0, 255, 0
+            // 50 -> 255, 10 -> 0
+            circle.g = ((circle.xCoords / 40) * 255) - 63.75;
+            // 50 -> 0, 10 -> 255
+            circle.b = (circle.xCoords * (-255/40)) + 318.75;
+        }
+        else{
+            // 50 -> 255, 10 -> 0
+            circle.g = ((circle.yCoords / 40) * 255) - 63.75;
+            // 50 -> 0, 10 -> 255
+            circle.b = (circle.yCoords * (-255/40)) + 318.75;
+        }
+    } else {
+        circle.r = 255;
+        circle.g = 165;
+        circle.b = 0;
+    }
+}
+
 function getNewCircleCoords(canvas, predictions, mediasource){
     for (let i = 0; i < predictions.length; i++) {
         var convertedCoords = translateCoords(predictions[i].bbox[0], predictions[i].bbox[1], mediasource, canvas);
           
         for (let j = 0; j < totalCircles; j++) {
-            var xDist = Math.abs(convertedCoords[0] - circleList[j].xCoords);
-            var yDist = Math.abs(convertedCoords[1] - circleList[j].yCoords);
+            var xDist = convertedCoords[0] - circleList[j].xCoords;
+            var yDist = convertedCoords[1] - circleList[j].yCoords;
 
             if (circleList[j].xCoords > circleList[j].radius){
                 onLeft = false;
@@ -188,13 +217,17 @@ function getNewCircleCoords(canvas, predictions, mediasource){
                 onTop = true;
             }
 
-            if (xDist > 4 && xDist < 150 && yDist > 4 && yDist < 150 && predictions[i].label != 'face' && !onTop && !onBottom && !onRight && !onLeft){
+            if (xDist < 150 && yDist < 150 && predictions[i].label != 'face' && !onTop && !onBottom && !onRight && !onLeft){
                 circleList[j].nearHand = true;
-                circleList[j].xVelocity = (200 * Math.sign((convertedCoords[0] - circleList[j].xCoords) * -1)) / xDist; // TODO calculate velocity
-                circleList[j].yVelocity = (200 * Math.sign((convertedCoords[1] - circleList[j].yCoords) * -1)) / yDist;  
+                //circleList[j].xVelocity = (200 * Math.sign((convertedCoords[0] - circleList[j].xCoords))) / xDist; // TODO calculate velocity
+                //circleList[j].yVelocity = (200 * Math.sign((convertedCoords[1] - circleList[j].yCoords))) / yDist;  
+                circleList[j].xVelocity = Math.sqrt(Math.pow(circleList[j].xVelocity, 2) + (10 * xDist)); // (xDist * (-40/146)) + 51);
+                circleList[j].yVelocity = Math.sqrt(Math.pow(circleList[j].yVelocity, 2) + (10 * yDist));//(yDist * (-40/146)) + 51;
             }
             else {
                 circleList[j].nearHand = false;
+                circleList[j].xVelocity = Math.sign(circleList[j].xVelocity) * 10;
+                circleList[j].yVelocity = Math.sign(circleList[j].yVelocity) * 10;
                 if (onTop || onBottom){
                     circleList[j].yVelocity = circleList[j].yVelocity * -1;
                 }
@@ -204,16 +237,23 @@ function getNewCircleCoords(canvas, predictions, mediasource){
             }
             circleList[j].xCoords = circleList[j].xCoords + circleList[j].xVelocity;
             circleList[j].yCoords = circleList[j].yCoords + circleList[j].yVelocity;
-            makeCircle(circleList[j].xCoords, circleList[j].yCoords, circleList[j].radius);
+            setCircleColor(circleList[j]);
+            makeCircle(circleList[j]);
         }
         
     }
 }
 
-function makeCircle(x, y, circleRadius) {
+function makeCircle(circleObj) {
+    context.fillStyle = `rgba(
+        ${circleObj.r},
+        ${circleObj.g},
+        ${circleObj.b}, 
+        ${circleObj.a})`;
     context.beginPath();
-    context.arc(x, y, circleRadius, 0, 2 * Math.PI);
+    context.arc(circleObj.xCoords, circleObj.yCoords, circleObj.radius, 0, 2 * Math.PI);
     context.stroke();
+    context.fill();
 }
 
 function reset(){
