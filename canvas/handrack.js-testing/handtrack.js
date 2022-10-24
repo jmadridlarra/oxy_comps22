@@ -13,6 +13,10 @@ let showVideo = false;
 let bubbleX = canvas.width / 2;
 let bubbleY = canvas.height / 2;
 let totalCircles = 30;
+let defaultSpeed = 100;
+let radiusOfAttraction = 50;
+// using JavaScript built in hash table Map
+const localPred = new Map();
 const circleList = [];
 const modelParams = {
     flipHorizontal: true,   // flip e.g for video  
@@ -37,6 +41,18 @@ const circle = {
     //     console.log(`My name is ${this.name}. Am I
     //       studying?: ${this.isStudying}.`)
     // }
+}
+const hand = {
+    x: 0,
+    y: 0,
+    height: 0,
+    width: 0,
+    sinceConfirmed: 0,
+    ID:0,
+}
+
+function end(){
+    model.dispose();
 }
 
 // starts video
@@ -68,6 +84,11 @@ function initCircles() {
     }
 }
 
+function getFPS(){
+    //console.log(model.getFPS);
+    return model.getFPS();
+}
+
 function startGame() {
     initCircles();
     toggleVideo();
@@ -90,15 +111,74 @@ function showVid() {
     showVideo = !showVideo;
 }
 
+function updateLocalPred(predictions, mediasource, canvas){
+    // used to track hands across frames
+    if (predictions.length > 0){
+        for (let i = 0; i < predictions.length; i++){
+            if (predictions[i].label != 'face'){
+                // create new hand object
+                newHand = Object.create(hand);
+                coords = translateCoords(predictions[i].bbox[0], predictions[i].bbox[1], mediasource, canvas);
+                newHand.x = coords[0];
+                newHand.y = coords[1];
+                newHand.height = predictions[i].bbox[3] - predictions[i].bbox[1];
+                newHand.width = predictions[i].bbox[2] - predictions[i].bbox[0];
+                newHand.sinceConfirmed = 0;
+                newHand.ID = Math.random();
+                mostLikely = 0;
+                prevPercent = 0;
+                // compare new hand with old hands
+                for (let [key, value] of localPred){
+                    probability = probabilityOfMatch(value, newHand);
+                    if (probability > prevPercent){
+                        mostLikely = key;
+                        prevPercent = probability;
+                    }
+                    if (i == predictions.length - 1){
+                        // we are at the last iteration, let's increase sinceConfirmed
+                        value.sinceConfirmed = value.sinceConfirmed + 1; 
+                    }
+
+                }
+                // replace the object with updated info if it is likely related
+                if (prevPercent > 75){
+                    newHand.ID = mostLikely;
+                    localPred.set(mostLikely, newHand);
+                }
+                else{
+                    // if it's not related to anything, we'll add it
+                    localPred.set(newHand.ID, newHand);
+                }
+            }
+        }
+    }else {
+        localPred.clear();
+    }
+}
+
+function probabilityOfMatch(old, cur){
+    if (old.ID == cur.ID){
+        return 100;
+    }
+    probability = 100;
+    probability = probability - Math.abs(old.x - cur.x);
+    probability = probability - Math.abs(old.y - cur.y);
+    probability = probability - Math.abs(old.width - cur.width);
+    probability = probability - Math.abs(old.height - cur.height);
+    probability = probability - old.sinceConfirmed;
+    return probability;
+}
+
 
 // runs the model
 function runDetection() {
     model.detect(video).then(predictions => {
-        console.log("Predictions: ", predictions);
+        //console.log("Predictions: ", predictions);
         // model.renderPredictions(predictions, canvas, context, video);
         if (predictions.length != 0) {
             getMouseCoord(predictions, canvas, context, video);   
         }
+        updateLocalPred(predictions, video, canvas);
         updateFrame(canvas, predictions, video);
         if (isVideo) {
             requestAnimationFrame(runDetection);
@@ -107,6 +187,7 @@ function runDetection() {
 }
 
 function updateFrame(canvas, predictions, video){
+    context.clearRect(0, 0, canvas.width, canvas.height);
     getNewCircleCoords(canvas, predictions, video);
     
 }
@@ -134,6 +215,10 @@ function getMouseCoord(predictions, canvas, context, mediasource){
         model.renderPredictions(predictions, canvas, context, video);
     }
     // creates the small circles for the predictions
+    
+}
+
+function makeSmallCircles(predictions, mediasource, canvas){
     for (let i = 0; i < predictions.length; i++) {
         if (predictions[i].label != 'face'){
             context.beginPath();
@@ -145,22 +230,22 @@ function getMouseCoord(predictions, canvas, context, mediasource){
     }
 }
 
-function makeBubble(canvas, predictions, mediasource) {
-    for (let i = 0; i < predictions.length; i++) {
-        var convertedCoords = translateCoords(predictions[i].bbox[0], predictions[i].bbox[1], mediasource, canvas);
-        if (predictions[i].label != 'face'){    
-            var xDist = Math.abs(convertedCoords[0] - bubbleX);
-            var yDist = Math.abs(convertedCoords[1] - bubbleY)
-            if (xDist > 4 && xDist < 150 && bubbleX > 40 && bubbleX < canvas.width - 40 && xDist > 4 && yDist < 150 && bubbleY > 40 && bubbleY < canvas.height - 40){
-                bubbleX = bubbleX - ((200 * Math.sign((convertedCoords[0] - bubbleX) * -1)) / xDist);
-                bubbleY = bubbleY - ((200 * Math.sign((convertedCoords[1] - bubbleY) * -1)) / yDist);  
-            }
-        }
-    }
-    context.beginPath();
-    context.arc(bubbleX, bubbleY, 40, 0, 2 * Math.PI);
-    context.stroke();
-}
+// function makeBubble(canvas, predictions, mediasource) {
+//     for (let i = 0; i < predictions.length; i++) {
+//         var convertedCoords = translateCoords(predictions[i].bbox[0], predictions[i].bbox[1], mediasource, canvas);
+//         if (predictions[i].label != 'face'){    
+//             var xDist = Math.abs(convertedCoords[0] - bubbleX);
+//             var yDist = Math.abs(convertedCoords[1] - bubbleY)
+//             if (xDist > 4 && xDist < 150 && bubbleX > 40 && bubbleX < canvas.width - 40 && xDist > 4 && yDist < 150 && bubbleY > 40 && bubbleY < canvas.height - 40){
+//                 bubbleX = bubbleX - ((200 * Math.sign((convertedCoords[0] - bubbleX) * -1)) / xDist);
+//                 bubbleY = bubbleY - ((200 * Math.sign((convertedCoords[1] - bubbleY) * -1)) / yDist);  
+//             }
+//         }
+//     }
+//     context.beginPath();
+//     context.arc(bubbleX, bubbleY, 40, 0, 2 * Math.PI);
+//     context.stroke();
+// }
 
 function setCircleColor(circle){
     if (circle.nearHand){
@@ -173,8 +258,7 @@ function setCircleColor(circle){
             circle.g = ((circle.xCoords / 40) * 255) - 63.75;
             // 50 -> 0, 10 -> 255
             circle.b = (circle.xCoords * (-255/40)) + 318.75;
-        }
-        else{
+        } else{
             // 50 -> 255, 10 -> 0
             circle.g = ((circle.yCoords / 40) * 255) - 63.75;
             // 50 -> 0, 10 -> 255
@@ -188,59 +272,65 @@ function setCircleColor(circle){
 }
 
 function getNewCircleCoords(canvas, predictions, mediasource){
-    for (let i = 0; i < predictions.length; i++) {
-        var convertedCoords = translateCoords(predictions[i].bbox[0], predictions[i].bbox[1], mediasource, canvas);
-          
-        for (let j = 0; j < totalCircles; j++) {
-            var xDist = convertedCoords[0] - circleList[j].xCoords;
-            var yDist = convertedCoords[1] - circleList[j].yCoords;
-
-            if (circleList[j].xCoords > circleList[j].radius){
-                onLeft = false;
-            }else{
-                onLeft = true;
-            } 
-            if (circleList[j].xCoords < canvas.width - circleList[j].radius){
-                onRight = false;
-            }
-            else{
-                onRight = true;
-            }
-            if (circleList[j].yCoords > circleList[j].radius){
-                onBottom = false;
-            } else{
-                onBottom = true;   
-            }    
-            if (circleList[j].yCoords < canvas.height - circleList[j].radius){
-                onTop = false;
-            } else {
-                onTop = true;
-            }
-
-            if (xDist < 150 && yDist < 150 && predictions[i].label != 'face' && !onTop && !onBottom && !onRight && !onLeft){
-                circleList[j].nearHand = true;
-                //circleList[j].xVelocity = (200 * Math.sign((convertedCoords[0] - circleList[j].xCoords))) / xDist; // TODO calculate velocity
-                //circleList[j].yVelocity = (200 * Math.sign((convertedCoords[1] - circleList[j].yCoords))) / yDist;  
-                circleList[j].xVelocity = Math.sqrt(Math.pow(circleList[j].xVelocity, 2) + (10 * xDist)); // (xDist * (-40/146)) + 51);
-                circleList[j].yVelocity = Math.sqrt(Math.pow(circleList[j].yVelocity, 2) + (10 * yDist));//(yDist * (-40/146)) + 51;
-            }
-            else {
-                circleList[j].nearHand = false;
-                circleList[j].xVelocity = Math.sign(circleList[j].xVelocity) * 10;
-                circleList[j].yVelocity = Math.sign(circleList[j].yVelocity) * 10;
-                if (onTop || onBottom){
-                    circleList[j].yVelocity = circleList[j].yVelocity * -1;
-                }
-                if (onLeft || onRight){
-                    circleList[j].xVelocity = circleList[j].xVelocity * -1;
-                }
-            }
-            circleList[j].xCoords = circleList[j].xCoords + circleList[j].xVelocity;
-            circleList[j].yCoords = circleList[j].yCoords + circleList[j].yVelocity;
-            setCircleColor(circleList[j]);
-            makeCircle(circleList[j]);
+    for (let j = 0; j < totalCircles; j++) {
+        if (circleList[j].xCoords > circleList[j].radius){
+            onLeft = false;
+        }else{
+            onLeft = true;
+        } 
+        if (circleList[j].xCoords < canvas.width - circleList[j].radius){
+            onRight = false;
         }
-        
+        else{
+            onRight = true;
+        }
+        if (circleList[j].yCoords > circleList[j].radius){
+            onBottom = false;
+        } else{
+            onBottom = true;   
+        }    
+        if (circleList[j].yCoords < canvas.height - circleList[j].radius){
+            onTop = false;
+        } else {
+            onTop = true;
+        }
+        circleList[j].nearHand = false;
+        if (predictions.length > 0){
+            for (let i = 0; i < predictions.length; i++) {
+                var convertedCoords = translateCoords(predictions[i].bbox[0], predictions[i].bbox[1], mediasource, canvas);
+                var xDist = convertedCoords[0] - circleList[j].xCoords;
+                var yDist = convertedCoords[1] - circleList[j].yCoords;
+                if (xDist < radiusOfAttraction && yDist < radiusOfAttraction && predictions[i].label != 'face' && !onTop && !onBottom && !onRight && !onLeft){
+                    circleList[j].nearHand = true;
+                    //circleList[j].xVelocity = (200 * Math.sign((convertedCoords[0] - circleList[j].xCoords))) / xDist; // TODO calculate velocity
+                    //circleList[j].yVelocity = (200 * Math.sign((convertedCoords[1] - circleList[j].yCoords))) / yDist;  
+                    // px/frame frame/sec
+                    if (xDist < circleList[j].radius + 5){
+                        circleList[j].xVelocity = circleList[j].xVelocity / 2;
+                    }else if (yDist > circleList[j].radius + 5){
+                        circleList[j].yVelocity = circleList[j].yVelocity / 2; 
+                    }else {
+                        circleList[j].xVelocity = circleList[j].xVelocity + (Math.sign(circleList[j].xVelocity) * 1);//Math.sqrt(Math.pow(circleList[j].xVelocity, 2) + (1 * xDist)) / getFPS(); // (xDist * (-40/146)) + 51);
+                        circleList[j].yVelocity = circleList[j].yVelocity + (Math.sign(circleList[j].yVelocity) * 1);//Math.sqrt(Math.pow(circleList[j].yVelocity, 2) + (1 * yDist)) / getFPS();//(yDist * (-40/146)) + 51;
+                    }
+                }            
+            }
+        }
+        if (!circleList[j].nearHand){
+            circleList[j].xVelocity = Math.sign(circleList[j].xVelocity) * defaultSpeed / getFPS();
+            circleList[j].yVelocity = Math.sign(circleList[j].yVelocity) * defaultSpeed / getFPS();
+            if (onTop || onBottom){
+                circleList[j].yVelocity = circleList[j].yVelocity * -1;
+            }
+            if (onLeft || onRight){
+                circleList[j].xVelocity = circleList[j].xVelocity * -1;
+            }
+        }
+        circleList[j].xCoords = circleList[j].xCoords + circleList[j].xVelocity;
+        circleList[j].yCoords = circleList[j].yCoords + circleList[j].yVelocity;
+        setCircleColor(circleList[j]);
+        makeCircle(circleList[j]);
+        makeSmallCircles(predictions, mediasource, canvas)
     }
 }
 
