@@ -3,7 +3,7 @@ const canvas = document.getElementById("canvas");
 const context = canvas.getContext("2d");
 let trackButton = document.getElementById("trackbutton");
 let updateNote = document.getElementById("updatenote");
-canvas.style.background = "red";
+canvas.style.background = "black";
 canvas.width = 1500;
 canvas.height = 750;
 
@@ -12,9 +12,11 @@ let model = null;
 let showVideo = false;
 let bubbleX = canvas.width / 2;
 let bubbleY = canvas.height / 2;
-let totalCircles = 30;
+let totalCircles = 75;
+let circlesLeft = totalCircles;
 let defaultSpeed = 100;
-let radiusOfAttraction = 50;
+let radiusOfAttraction = 275;
+let countCirclesNearHand = 0;
 // using JavaScript built in hash table Map
 const localPred = new Map();
 const circleList = [];
@@ -31,12 +33,14 @@ const circle = {
     yCoords: canvas.height / 2,
     nearHand: false,
     radius: 40,
-    yVelocity: 10,
-    xVelocity: 10,
+    yVelocity: defaultSpeed,
+    xVelocity: defaultSpeed,
     r: 255,
     g: 165,
     b: 0,
     a: 1, 
+    readyToLaunch: false,
+    launching: false,
     // getNextCoords : function(){
     //     console.log(`My name is ${this.name}. Am I
     //       studying?: ${this.isStudying}.`)
@@ -53,6 +57,7 @@ const hand = {
 
 function end(){
     model.dispose();
+    showVid();
 }
 
 // starts video
@@ -75,12 +80,15 @@ function startVideo() {
 }
 
 function initCircles() {
-    bubbleRadius = (canvas.width / totalCircles - 10) /2;
+    bubbleRadius = (canvas.width / (totalCircles - 5)) / 1.5;
     for (let i = 0; i < totalCircles; i++){
         circleList[i] = Object.create(circle);
         circleList[i].xCoords = Math.floor(Math.random() * canvas.width);
         circleList[i].yCoords = Math.floor(Math.random() * canvas.height);
         circleList[i].radius = bubbleRadius;
+        circleList[i].xVelocity = ((Math.random() * defaultSpeed * 2) - defaultSpeed) / getFPS();
+        console.log(circleList[i].xVelocity);
+        circleList[i].yVelocity = ((Math.random() * defaultSpeed * 2)- defaultSpeed) / getFPS();
     }
 }
 
@@ -90,8 +98,8 @@ function getFPS(){
 }
 
 function startGame() {
-    initCircles();
     toggleVideo();
+    
 }
 // button to turn video on or off
 function toggleVideo() {
@@ -113,16 +121,19 @@ function showVid() {
 
 function updateLocalPred(predictions, mediasource, canvas){
     // used to track hands across frames
-    if (predictions.length > 0){
+    if (predictions.length > 1){
         for (let i = 0; i < predictions.length; i++){
             if (predictions[i].label != 'face'){
                 // create new hand object
                 newHand = Object.create(hand);
                 coords = translateCoords(predictions[i].bbox[0], predictions[i].bbox[1], mediasource, canvas);
-                newHand.x = coords[0];
-                newHand.y = coords[1];
+                
                 newHand.height = predictions[i].bbox[3] - predictions[i].bbox[1];
                 newHand.width = predictions[i].bbox[2] - predictions[i].bbox[0];
+                line = getLine(0, 0, newHand.width, canvas.width);
+                // DOUBLE CHECK THIS
+                newHand.x = coords[0] + line[0] * coords[0] + line[1];
+                newHand.y = coords[1] + line[0] * coords[0] + line[1];
                 newHand.sinceConfirmed = 0;
                 newHand.ID = Math.random();
                 mostLikely = 0;
@@ -138,7 +149,10 @@ function updateLocalPred(predictions, mediasource, canvas){
                         // we are at the last iteration, let's increase sinceConfirmed
                         value.sinceConfirmed = value.sinceConfirmed + 1; 
                     }
-
+                    if (value.sinceConfirmed > 5){
+                        // how many frames it's been gone.
+                        localPred.delete(key);
+                    }
                 }
                 // replace the object with updated info if it is likely related
                 if (prevPercent > 75){
@@ -157,6 +171,7 @@ function updateLocalPred(predictions, mediasource, canvas){
 }
 
 function probabilityOfMatch(old, cur){
+    // returns the probability that the hand is the same from frame to frame based on several factors
     if (old.ID == cur.ID){
         return 100;
     }
@@ -218,15 +233,13 @@ function getMouseCoord(predictions, canvas, context, mediasource){
     
 }
 
-function makeSmallCircles(predictions, mediasource, canvas){
-    for (let i = 0; i < predictions.length; i++) {
-        if (predictions[i].label != 'face'){
-            context.beginPath();
-            // context.arc(95, 50, 40, 0, 2 * Math.PI);
-            coords = translateCoords(predictions[i].bbox[0], predictions[i].bbox[1], mediasource, canvas)
-            context.arc(coords[0], coords[1], 5, 0, 2 * Math.PI);
-            context.stroke();
-        }
+function makeSmallCircles(){
+    for (let [key, value] of localPred) {
+        context.beginPath();
+        // context.arc(95, 50, 40, 0, 2 * Math.PI);
+        //coords = translateCoords(predictions[i].bbox[0], predictions[i].bbox[1], mediasource, canvas)
+        context.arc(value.x, value.y, 5, 0, 2 * Math.PI);
+        context.stroke();
     }
 }
 
@@ -248,30 +261,58 @@ function makeSmallCircles(predictions, mediasource, canvas){
 // }
 
 function setCircleColor(circle){
-    if (circle.nearHand){
+    if (circle.launching){
+        circle.r = 255;
+        circle.g = 0;
+        circle.b = 0;
+    } else if (circle.nearHand != -1){
         circle.r = 0;
         //circle.g = 255;
         //circle.b = 0;
-        if (circle.xCoords >= circle.yCoords){
+        if (circle.xVelocity >= circle.yVelocity){
             // 10-50 yellow 255, 255, 0; green 0, 255, 0
             // 50 -> 255, 10 -> 0
-            circle.g = ((circle.xCoords / 40) * 255) - 63.75;
+            gline = getLine(0, 0, 30, 255);
+            circle.g = (circle.xVelocity * gline[0]) + gline[1];
             // 50 -> 0, 10 -> 255
-            circle.b = (circle.xCoords * (-255/40)) + 318.75;
+            bline = getLine(0, 255, 30, 0);
+            circle.b = (circle.xVelocity * bline[0]) + bline[1];
         } else{
             // 50 -> 255, 10 -> 0
-            circle.g = ((circle.yCoords / 40) * 255) - 63.75;
+            gline = getLine(0, 0, 30, 255);
+            circle.g = (circle.yVelocity * gline[0]) + gline[1];
             // 50 -> 0, 10 -> 255
-            circle.b = (circle.yCoords * (-255/40)) + 318.75;
+            bline = getLine(0, 255, 30, 0);
+            circle.b = (circle.yVelocity * bline[0]) + bline[1];
         }
     } else {
         circle.r = 255;
-        circle.g = 165;
-        circle.b = 0;
+        circle.g = 255;
+        circle.b = 255;
     }
 }
 
+function getLine(x1, y1, x2, y2){
+    m = (y2 -y1)/(x2 -x1);
+    b = (y1 - (m*x1));
+    return [m, b];
+}
+
+function testFunc(){
+    countCirclesNearHand = 75;
+}
+
+function getRandomSign(){
+    if (Math.random() > 0.5){
+        sign = 1;
+    }else{
+        sign = -1;
+    }
+    return sign;
+}
+
 function getNewCircleCoords(canvas, predictions, mediasource){
+    countCirclesNearHand = 0;
     for (let j = 0; j < totalCircles; j++) {
         if (circleList[j].xCoords > circleList[j].radius){
             onLeft = false;
@@ -294,43 +335,86 @@ function getNewCircleCoords(canvas, predictions, mediasource){
         } else {
             onTop = true;
         }
-        circleList[j].nearHand = false;
-        if (predictions.length > 0){
-            for (let i = 0; i < predictions.length; i++) {
-                var convertedCoords = translateCoords(predictions[i].bbox[0], predictions[i].bbox[1], mediasource, canvas);
-                var xDist = convertedCoords[0] - circleList[j].xCoords;
-                var yDist = convertedCoords[1] - circleList[j].yCoords;
-                if (xDist < radiusOfAttraction && yDist < radiusOfAttraction && predictions[i].label != 'face' && !onTop && !onBottom && !onRight && !onLeft){
-                    circleList[j].nearHand = true;
+        circleList[j].nearHand = -1;
+        if (localPred.size > 0 && !circleList[j].launching){
+            for (let [key, value] of localPred) {
+                //var convertedCoords = translateCoords(value.bbox[0], value.bbox[1], mediasource, canvas);
+                var xDist = value.x - circleList[j].xCoords;
+                var yDist = value.y - circleList[j].yCoords;
+                if (Math.abs(xDist) < radiusOfAttraction && Math.abs(yDist) < radiusOfAttraction && !onTop && !onBottom && !onRight && !onLeft){
+                    circleList[j].nearHand = key;
                     //circleList[j].xVelocity = (200 * Math.sign((convertedCoords[0] - circleList[j].xCoords))) / xDist; // TODO calculate velocity
                     //circleList[j].yVelocity = (200 * Math.sign((convertedCoords[1] - circleList[j].yCoords))) / yDist;  
                     // px/frame frame/sec
-                    if (xDist < circleList[j].radius + 5){
+                    if (Math.abs(xDist) < circleList[j].radius + 5){
                         circleList[j].xVelocity = circleList[j].xVelocity / 2;
-                    }else if (yDist > circleList[j].radius + 5){
-                        circleList[j].yVelocity = circleList[j].yVelocity / 2; 
-                    }else {
-                        circleList[j].xVelocity = circleList[j].xVelocity + (Math.sign(circleList[j].xVelocity) * 1);//Math.sqrt(Math.pow(circleList[j].xVelocity, 2) + (1 * xDist)) / getFPS(); // (xDist * (-40/146)) + 51);
-                        circleList[j].yVelocity = circleList[j].yVelocity + (Math.sign(circleList[j].yVelocity) * 1);//Math.sqrt(Math.pow(circleList[j].yVelocity, 2) + (1 * yDist)) / getFPS();//(yDist * (-40/146)) + 51;
                     }
+                    else {
+                        circleList[j].xVelocity = circleList[j].xVelocity + (Math.sign(xDist) * 1);//Math.sqrt(Math.pow(circleList[j].xVelocity, 2) + (1 * xDist)) / getFPS(); // (xDist * (-40/146)) + 51);
+                    }
+                    if (Math.abs(yDist) < circleList[j].radius + 5){
+                        circleList[j].yVelocity = circleList[j].yVelocity / 2; 
+                    }else{
+                        circleList[j].yVelocity = circleList[j].yVelocity + (Math.sign(yDist) * 1);//Math.sqrt(Math.pow(circleList[j].yVelocity, 2) + (1 * yDist)) / getFPS();//(yDist * (-40/146)) + 51;
+                    }
+                    if (Math.abs(xDist) < circleList[j].radius + 5 && Math.abs(yDist) < circleList[j].radius + 5){
+                        if (circleList[j].xVelocity < 10 && circleList[j].yVelocity < 10){
+                            circleList[j].readyToLaunch = true;
+                        }
+                        
+                    }else{
+                        circleList[j].readyToLaunch = false;
+                    }
+                    if (circleList[j].readyToLaunch && (circleList[j].xVelocity > 10 || circleList[j].yVelocity > 10)){
+                        circleList[j].launching = true;
+                    }
+                    if (countCirclesNearHand == circlesLeft){
+                        circleList[j].launching = true;
+                        circleList[j].xVelocity = getRandomSign() * defaultSpeed * 5 / getFPS();
+                        circleList[j].yVelocity = getRandomSign() * defaultSpeed * 5 / getFPS();
+                    }
+                } else{
+                    circleList[j].nearHand == -1;
+                    circleList[j].xVelocity = Math.sign(circleList[j].xVelocity) * ((Math.random() * defaultSpeed * 2) - defaultSpeed) / getFPS();
+                    circleList[j].yVelocity = Math.sign(circleList[j].yVelocity) * ((Math.random() * defaultSpeed * 2) - defaultSpeed) / getFPS();
                 }            
             }
         }
-        if (!circleList[j].nearHand){
-            circleList[j].xVelocity = Math.sign(circleList[j].xVelocity) * defaultSpeed / getFPS();
-            circleList[j].yVelocity = Math.sign(circleList[j].yVelocity) * defaultSpeed / getFPS();
-            if (onTop || onBottom){
+        if (circleList[j].readyToLaunch){
+            countCirclesNearHand += 1;
+        }
+        if (circleList[j].launching){
+            circlesLeft -= 1; 
+        }
+        if (circleList[j].nearHand == -1 && !circleList[j].launching){
+            if (Math.abs(circleList[j].xVelocity) < (defaultSpeed / getFPS())){
+                circleList[j].xVelocity = circleList[j].xVelocity + Math.sign(circleList[j].xVelocity);
+            }
+            if (Math.abs(circleList[j].yVelocity) < (defaultSpeed / getFPS())){
+                circleList[j].yVelocity = circleList[j].yVelocity + Math.sign(circleList[j].yVelocity);
+            }
+            if (onTop){
+                circleList[j].yVelocity = circleList[j].yVelocity * -1;
+                circleList[j].yCoords = canvas.height - circleList[j].radius;
+            }
+            if (onBottom){
+                circleList[j].yCoords = circleList[j].radius;
                 circleList[j].yVelocity = circleList[j].yVelocity * -1;
             }
-            if (onLeft || onRight){
+            if (onLeft){
                 circleList[j].xVelocity = circleList[j].xVelocity * -1;
+                circleList[j].xCoords = circleList[j].radius;
+            }
+            if (onRight){
+                circleList[j].xVelocity = circleList[j].xVelocity * -1;
+                circleList[j].xCoords = canvas.width - circleList[j].radius;
             }
         }
         circleList[j].xCoords = circleList[j].xCoords + circleList[j].xVelocity;
         circleList[j].yCoords = circleList[j].yCoords + circleList[j].yVelocity;
         setCircleColor(circleList[j]);
         makeCircle(circleList[j]);
-        makeSmallCircles(predictions, mediasource, canvas)
+        makeSmallCircles(predictions, mediasource, canvas);
     }
 }
 
@@ -348,6 +432,9 @@ function makeCircle(circleObj) {
 
 function reset(){
     initCircles();
+    localPred.clear();
+    countCirclesNearHand = 0;
+    circlesLeft = totalCircles;
 }
 
 // Load the model.
