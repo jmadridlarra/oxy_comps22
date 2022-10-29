@@ -17,8 +17,8 @@ const modelParams = {
     scoreThreshold: 0.65,    // confidence threshold for predictions.
 };
 
-let levelOne = true;
-let levelTwo = false;
+let levelOne = false;
+let levelTwo = true;
 
 const hand = {
     x: 0,
@@ -63,7 +63,11 @@ const circle = {
 
 //========================================
 // LEVEL TWO global vars
-
+//var tri = new Trianglify();
+const trianglify = window.trianglify;
+const options = {height: canvas.height, width: canvas.width};
+const pattern = trianglify(options);
+console.log(pattern instanceof trianglify.Pattern); // true
 
 function end(){
     model.dispose();
@@ -157,9 +161,15 @@ function updateFrame(canvas, predictions, video){
     context.clearRect(0, 0, canvas.width, canvas.height);
     makeSmallCircles(predictions, video, canvas);
     if (levelOne){
+        canvas.style.background = "black";
         getNewCircleCoords(canvas, predictions, video);
     } else if (levelTwo) {
-
+        canvas.style.background = `rgba(
+            65,
+            105,
+            225, 
+            1)`;
+        
     }
 }
 
@@ -265,6 +275,8 @@ function reset(){
         initCircles();
         countCirclesNearHand = 0;
         circlesLeft = totalCircles;
+    } else if (levelTwo){
+        generateTriangles(canvas);
     }
 }
 
@@ -436,6 +448,27 @@ function makeCircle(circleObj) {
     context.beginPath();
     context.arc(circleObj.xCoords, circleObj.yCoords, circleObj.radius, 0, 2 * Math.PI);
     context.stroke();
+    context.fill();
+}
+//=====================================================================
+// LEVEL TWO
+
+function generateTriangles(canvas){
+    // this is only done at the beginning of the level
+    pattern.toCanvas(canvas);
+    displayTriangles();
+}
+
+function displayTriangles(){
+    for (let i = 0; i<pattern.polys.length; i++){
+        console.log(pattern.polys[i].vertexIndices)
+        console.log(pattern.polys[i].color)
+    }
+    context.fillStyle = `rgba(255, 255, 255, 1)`;
+    context.beginPath();
+    context.moveTo(pattern.points[pattern.polys[0].vertexIndices[0]][0], pattern.points[pattern.polys[0].vertexIndices[0]][1]);
+    context.lineTo(pattern.points[pattern.polys[0].vertexIndices[1]][0], pattern.points[pattern.polys[0].vertexIndices[1]][1]);
+    context.lineTo(pattern.points[pattern.polys[0].vertexIndices[2]][0], pattern.points[pattern.polys[0].vertexIndices[2]][1]);
     context.fill();
 }
 
