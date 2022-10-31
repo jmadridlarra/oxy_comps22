@@ -81,6 +81,7 @@ const edge = {
     xcur: 0,
     length: 0,
     velocity: 10,
+    frozen: true,
 }
 
 function end(){
@@ -265,6 +266,11 @@ function probabilityOfMatch(old, cur){
 
 function makeSmallCircles(){
     for (let [key, value] of localPred) {
+        if (levelOne){
+            context.strokeStyle = `rgba(0, 0, 0, 1)`;
+        } else {
+            context.strokeStyle = `rgba(255, 255, 255, 1)`;
+        }
         context.beginPath();
         // context.arc(95, 50, 40, 0, 2 * Math.PI);
         //coords = translateCoords(predictions[i].bbox[0], predictions[i].bbox[1], mediasource, canvas)
@@ -542,23 +548,60 @@ function displayTriangles(){
     context.fill();
 }
 
+function drawLine(x1, y1, x2, y2){
+    context.strokeStyle = `rgba(255, 255, 255, 1)`;
+    context.beginPath();
+    context.moveTo(x1, y1);
+    context.lineTo(x2, y2);
+    context.closePath();
+    context.stroke();
+}
+
+function checkTouching(edge){
+    for (let [key, value] of localPred) {
+        if (edge.x1 > edge.x2){
+            maxx = edge.x1;
+            minx = edge.x2;
+        } else {
+            maxx = edge.x2;
+            minx = edge.x1;
+        }
+        if (edge.y1 > edge.y2){
+            maxy = edge.y1;
+            miny = edge.y2;
+        } else {
+            maxy = edge.y2;
+            miny = edge.y1;
+        }
+        if (value.x > minx && value.x < maxx && value.y > miny && value.y < maxy){
+            return true;
+        } else {
+            return false;
+        }
+    }
+}
+
 function moveLines(){
     for (let i = 0; i<pattern.polys.length; i++){ 
-        context.strokeStyle = `rgba(255, 255, 255, 1)`;
-        context.beginPath();
-        x1 = placeholder[i].xcur;
-        y1 = (x1 * placeholder[i].m) + placeholder[i].b;
-        x2 = placeholder[i].xcur + placeholder[i].length;
-        y2 = (x2 * placeholder[i].m) + placeholder[i].b;
-        context.moveTo(x1, y1);
-        context.lineTo(x2, y2);
-        context.closePath();
-        context.stroke();
-        // console.log(canvas.width)
-        if (x1 > canvas.width){
-            placeholder[i].xcur = -1 * Math.abs(placeholder[i].length);
+        if (placeholder[i].frozen || checkTouching(placeholder[i])){
+            placeholder[i].frozen = true;
+            x1 = placeholder[i].x1;
+            y1 = placeholder[i].y1;
+            x2 = placeholder[i].x2;
+            y2 = placeholder[i].y2;
+            drawLine(x1, y1, x2, y2);
         } else {
-            placeholder[i].xcur = x1 + placeholder[i].velocity;
+            x1 = placeholder[i].xcur;
+            y1 = (x1 * placeholder[i].m) + placeholder[i].b;
+            x2 = placeholder[i].xcur + placeholder[i].length;
+            y2 = (x2 * placeholder[i].m) + placeholder[i].b;
+            drawLine(x1, y1, x2, y2);
+            // console.log(canvas.width)
+            if (x1 > canvas.width){
+                placeholder[i].xcur = -1 * Math.abs(placeholder[i].length);
+            } else {
+                placeholder[i].xcur = x1 + placeholder[i].velocity;
+            }
         }
         // console.log(placeholder[0]);
         // console.log(y1);
