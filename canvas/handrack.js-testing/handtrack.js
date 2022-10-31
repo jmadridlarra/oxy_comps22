@@ -68,6 +68,20 @@ const trianglify = window.trianglify;
 const options = {height: canvas.height, width: canvas.width};
 const pattern = trianglify(options);
 console.log(pattern instanceof trianglify.Pattern); // true
+const edgeList = new Map();
+const edge = {
+    x1: 0,
+    y1: 0,
+    x2: 0,
+    y2: 0,
+    poly: 0,
+    edgeNumber: 1, 
+    m: 0, 
+    b: 0,
+    xcur: 0,
+    length: 0,
+    velocity: 10,
+}
 
 function end(){
     model.dispose();
@@ -164,11 +178,13 @@ function updateFrame(canvas, predictions, video){
         canvas.style.background = "black";
         getNewCircleCoords(canvas, predictions, video);
     } else if (levelTwo) {
-        canvas.style.background = `rgba(
-            65,
-            105,
-            225, 
-            1)`;
+        moveLines();
+        //displayTriangles();
+        // canvas.style.background = `rgba(
+        //     65,
+        //     105,
+        //     225, 
+        //     1)`;
         
     }
 }
@@ -264,6 +280,10 @@ function getLine(x1, y1, x2, y2){
     b = (y1 - (m*x1));
     return [m, b];
 }
+
+// function returnY(x, m, b){
+//     return m*x + b;
+// }
 
 function testFunc(){
     countCirclesNearHand = 75;
@@ -453,25 +473,95 @@ function makeCircle(circleObj) {
 //=====================================================================
 // LEVEL TWO
 
+function setEdge(i, j, k, num){
+    curEdge = Object.create(edge);
+    curEdge.x1 = pattern.points[pattern.polys[i].vertexIndices[j]][0];
+    curEdge.y1 = pattern.points[pattern.polys[i].vertexIndices[j]][1];
+    curEdge.x2 = pattern.points[pattern.polys[i].vertexIndices[k]][0];
+    curEdge.y2 = pattern.points[pattern.polys[i].vertexIndices[k]][1];
+    curEdge.xcur = curEdge.x1;
+    curEdge.poly = i;
+    curEdge.edgeNumber = num;
+    curEdge.length = curEdge.x1 - curEdge.x2;
+    curEdge.velocity = 10;
+
+    formula = getLine(curEdge.x1, curEdge.y1, curEdge.x2, curEdge.y2);
+    curEdge.m = formula[0]; 
+    curEdge.b = formula[1];
+    return curEdge;
+}
+let placeholder = [];
 function generateTriangles(canvas){
     // this is only done at the beginning of the level
     pattern.toCanvas(canvas);
-    displayTriangles();
+    for (let i = 0; i < pattern.polys.length; i++){
+        edge1 = setEdge(i, 0, 1, 1);
+        edge2 = setEdge(i, 1, 2, 2);
+        edge3 = setEdge(i, 0, 2, 3);
+        
+        placeholder.push(edge1);
+        placeholder.push(edge2);
+        placeholder.push(edge3);
+        // key = pattern.points[pattern.polys[i].vertexIndices[0]][0];
+        // if (edgeList.has(key)){
+
+        // } else {
+            
+        // }
+    }
+    //displayTriangles();
 }
 
 function displayTriangles(){
     for (let i = 0; i<pattern.polys.length; i++){
-        console.log(pattern.polys[i].vertexIndices)
-        console.log(pattern.polys[i].color)
+        // console.log(pattern.polys[i].vertexIndices)
+        // console.log(pattern.polys[i].color._rgb[0])
+        context.fillStyle = `rgba(
+            ${pattern.polys[i].color._rgb[0]},
+            ${pattern.polys[i].color._rgb[1]},
+            ${pattern.polys[i].color._rgb[2]}, 
+            ${pattern.polys[i].color._rgb[3]}
+        )`;
+        context.strokeStyle = `rgba(255, 255, 255, 1)`;
+        context.beginPath();
+        context.moveTo(pattern.points[pattern.polys[i].vertexIndices[0]][0], pattern.points[pattern.polys[i].vertexIndices[0]][1]);
+        context.lineTo(pattern.points[pattern.polys[i].vertexIndices[1]][0], pattern.points[pattern.polys[i].vertexIndices[1]][1]);
+        context.lineTo(pattern.points[pattern.polys[i].vertexIndices[2]][0], pattern.points[pattern.polys[i].vertexIndices[2]][1]);
+        context.closePath();
+        context.stroke();
+        context.fill();
     }
     context.fillStyle = `rgba(255, 255, 255, 1)`;
+    context.strokeStyle = `rgba(255, 255, 255, 1)`;
     context.beginPath();
     context.moveTo(pattern.points[pattern.polys[0].vertexIndices[0]][0], pattern.points[pattern.polys[0].vertexIndices[0]][1]);
     context.lineTo(pattern.points[pattern.polys[0].vertexIndices[1]][0], pattern.points[pattern.polys[0].vertexIndices[1]][1]);
     context.lineTo(pattern.points[pattern.polys[0].vertexIndices[2]][0], pattern.points[pattern.polys[0].vertexIndices[2]][1]);
+    context.closePath();
+    context.stroke();
     context.fill();
 }
 
+function moveLines(){
+    context.strokeStyle = `rgba(255, 255, 255, 1)`;
+    context.beginPath();
+    x1 = placeholder[0].xcur;
+    y1 = (x1 * placeholder[0].m) + placeholder[0].b;
+    x2 = placeholder[0].xcur + placeholder[0].length;
+    y2 = (x2 * placeholder[0].m) + placeholder[0].b;
+    context.moveTo(x1, y1);
+    context.lineTo(x2, y2);
+    context.closePath();
+    context.stroke();
+    console.log(canvas.width)
+    if (x1 > canvas.width){
+        placeholder[0].xcur = -1 * Math.abs(placeholder[0].length);
+    } else {
+        placeholder[0].xcur = x1 + placeholder[0].velocity;
+    }
+    console.log(placeholder[0]);
+    console.log(y1);
+}
 // Load the model.
 handTrack.load(modelParams).then(lmodel => {
     // detect objects in the image.
