@@ -479,7 +479,7 @@ function setEdge(i, j, k, num){
     curEdge.y1 = pattern.points[pattern.polys[i].vertexIndices[j]][1];
     curEdge.x2 = pattern.points[pattern.polys[i].vertexIndices[k]][0];
     curEdge.y2 = pattern.points[pattern.polys[i].vertexIndices[k]][1];
-    curEdge.xcur = curEdge.x1;
+    curEdge.xcur = Math.floor(Math.random() * canvas.width);
     curEdge.poly = i;
     curEdge.edgeNumber = num;
     curEdge.length = curEdge.x1 - curEdge.x2;
@@ -543,24 +543,26 @@ function displayTriangles(){
 }
 
 function moveLines(){
-    context.strokeStyle = `rgba(255, 255, 255, 1)`;
-    context.beginPath();
-    x1 = placeholder[0].xcur;
-    y1 = (x1 * placeholder[0].m) + placeholder[0].b;
-    x2 = placeholder[0].xcur + placeholder[0].length;
-    y2 = (x2 * placeholder[0].m) + placeholder[0].b;
-    context.moveTo(x1, y1);
-    context.lineTo(x2, y2);
-    context.closePath();
-    context.stroke();
-    console.log(canvas.width)
-    if (x1 > canvas.width){
-        placeholder[0].xcur = -1 * Math.abs(placeholder[0].length);
-    } else {
-        placeholder[0].xcur = x1 + placeholder[0].velocity;
+    for (let i = 0; i<pattern.polys.length; i++){ 
+        context.strokeStyle = `rgba(255, 255, 255, 1)`;
+        context.beginPath();
+        x1 = placeholder[i].xcur;
+        y1 = (x1 * placeholder[i].m) + placeholder[i].b;
+        x2 = placeholder[i].xcur + placeholder[i].length;
+        y2 = (x2 * placeholder[i].m) + placeholder[i].b;
+        context.moveTo(x1, y1);
+        context.lineTo(x2, y2);
+        context.closePath();
+        context.stroke();
+        // console.log(canvas.width)
+        if (x1 > canvas.width){
+            placeholder[i].xcur = -1 * Math.abs(placeholder[i].length);
+        } else {
+            placeholder[i].xcur = x1 + placeholder[i].velocity;
+        }
+        // console.log(placeholder[0]);
+        // console.log(y1);
     }
-    console.log(placeholder[0]);
-    console.log(y1);
 }
 // Load the model.
 handTrack.load(modelParams).then(lmodel => {
