@@ -17,8 +17,8 @@ const modelParams = {
     scoreThreshold: 0.65,    // confidence threshold for predictions.
 };
 
-let levelOne = false;
-let levelTwo = true;
+let levelOne = true;
+let levelTwo = false;
 
 const hand = {
     x: 0,
@@ -33,7 +33,7 @@ const hand = {
 // LEVEL ONE global vars
 let bubbleX = canvas.width / 2;
 let bubbleY = canvas.height / 2;
-let totalCircles = 75;
+let totalCircles = 5;
 let circlesLeft = totalCircles;
 let defaultSpeed = 100;
 let radiusOfAttraction = 275;
@@ -65,17 +65,19 @@ const circle = {
 // LEVEL TWO global vars
 //var tri = new Trianglify();
 const trianglify = window.trianglify;
-const options = {height: canvas.height, width: canvas.width};
-const pattern = trianglify(options);
+const options = {height: canvas.height, width: canvas.width, cellSize: 300,};
+var pattern = trianglify(options);
 console.log(pattern instanceof trianglify.Pattern); // true
 const edgeList = new Map();
+var frozenEdges = 0;
 const edge = {
     x1: 0,
     y1: 0,
     x2: 0,
     y2: 0,
     poly: 0,
-    edgeNumber: 1, 
+    left: 0,
+    right: 0, 
     m: 0, 
     b: 0,
     xcur: 0,
@@ -137,6 +139,12 @@ function showVid() {
     showVideo = !showVideo;
 }
 
+function switchLevel(){
+    levelOne = !levelOne;
+    levelTwo = !levelTwo;
+    reset();
+}
+
 // runs the model
 function runDetection() {
     model.detect(video).then(predictions => {
@@ -178,15 +186,20 @@ function updateFrame(canvas, predictions, video){
     if (levelOne){
         canvas.style.background = "black";
         getNewCircleCoords(canvas, predictions, video);
+        if (circleList.length == 0){
+            switchLevel();
+        }
     } else if (levelTwo) {
         moveLines();
+        if (frozenEdges == placeholder.length){
+            switchLevel();
+        }
         //displayTriangles();
         // canvas.style.background = `rgba(
         //     65,
         //     105,
         //     225, 
         //     1)`;
-        
     }
 }
 
@@ -205,15 +218,27 @@ function updateLocalPred(predictions, mediasource, canvas){
         for (let i = 0; i < predictions.length; i++){
             if (predictions[i].label != 'face'){
                 // create new hand object
+                //  [xy]--------*
+                //  |           |
+                //  |           |
+                //  |           |
+                //  *---------[xy]
                 newHand = Object.create(hand);
-                coords = translateCoords(predictions[i].bbox[0], predictions[i].bbox[1], mediasource, canvas);
+                coords1 = translateCoords(predictions[i].bbox[0], predictions[i].bbox[1], mediasource, canvas);
+                coords2 = translateCoords(predictions[i].bbox[2], predictions[i].bbox[3], mediasource, canvas);
                 
-                newHand.height = predictions[i].bbox[3] - predictions[i].bbox[1];
-                newHand.width = predictions[i].bbox[2] - predictions[i].bbox[0];
-                line = getLine(0, 0, newHand.width, canvas.width);
-                // DOUBLE CHECK THIS
-                newHand.x = coords[0] + line[0] * coords[0] + line[1];
-                newHand.y = coords[1] + line[0] * coords[0] + line[1];
+                newHand.height = Math.abs(coords2[1] - coords1[1]);
+                newHand.width = Math.abs(coords2[0] - coords1[0]);
+                linex = getLine(0, 0, canvas.width, newHand.width);
+                liney = getLine(0, 0, canvas.height, newHand.height);
+                //console.log(linex);
+                // DOUBLE CHECK THIS TODO
+                // centerx = coords1[0] + (newHand.width/2);
+                // if (coords1[0] < (canvas.width - newHand.width / 2)){
+
+                // } else if (coords1[0] )
+                newHand.x = coords1[0] + ((linex[0] * coords1[0]) + linex[1]);
+                newHand.y = coords1[1] + ((liney[0] * coords1[1]) + liney[1]);
                 newHand.sinceConfirmed = 0;
                 newHand.ID = Math.random();
                 mostLikely = 0;
@@ -267,7 +292,7 @@ function probabilityOfMatch(old, cur){
 function makeSmallCircles(){
     for (let [key, value] of localPred) {
         if (levelOne){
-            context.strokeStyle = `rgba(0, 0, 0, 1)`;
+            context.strokeStyle = `rgba(255, 255, 255, 1)`;
         } else {
             context.strokeStyle = `rgba(255, 255, 255, 1)`;
         }
@@ -292,7 +317,8 @@ function getLine(x1, y1, x2, y2){
 // }
 
 function testFunc(){
-    countCirclesNearHand = 75;
+    //countCirclesNearHand = 75;
+    showVid();
 }
 
 function reset(){
@@ -302,7 +328,11 @@ function reset(){
         countCirclesNearHand = 0;
         circlesLeft = totalCircles;
     } else if (levelTwo){
+        placeholder = [];
+        pattern = trianglify(options);
+        console.log(pattern instanceof trianglify.Pattern); // true
         generateTriangles(canvas);
+        frozenEdges = 0;
     }
 }
 
@@ -318,7 +348,7 @@ function getRandomSign(){
 // ================================================
 // LEVEL ONE
 function initCircles() {
-    bubbleRadius = (canvas.width / (totalCircles - 5)) / 1.5;
+    bubbleRadius = 20; //(canvas.width / (totalCircles - 5)) / 1.5;
     for (let i = 0; i < totalCircles; i++){
         circleList[i] = Object.create(circle);
         circleList[i].xCoords = Math.floor(Math.random() * canvas.width);
@@ -363,8 +393,8 @@ function setCircleColor(circle){
 }
 
 function getNewCircleCoords(canvas, predictions, mediasource){
-    countCirclesNearHand = 0;
-    for (let j = 0; j < totalCircles; j++) {
+    //countCirclesNearHand = 0;
+    for (let j = 0; j < circleList.length; j++) {
         if (circleList[j].xCoords > circleList[j].radius){
             onLeft = false;
         }else{
@@ -407,14 +437,21 @@ function getNewCircleCoords(canvas, predictions, mediasource){
                     }
                     if (Math.abs(xDist) < circleList[j].radius + 5 && Math.abs(yDist) < circleList[j].radius + 5){
                         if (circleList[j].xVelocity < 10 && circleList[j].yVelocity < 10){
-                            circleList[j].readyToLaunch = true;
+                            if (circleList[j].nearHand == key && circleList[j].readyToLaunch == false){
+                                countCirclesNearHand += 1;
+                                circleList[j].readyToLaunch = true;
+                            }
                         }
-                    }else{
+                    }else if (circleList[j].nearHand == key){
+                        if (circleList[j].readyToLaunch == true){
+                            countCirclesNearHand -= 1;
+                        }
                         circleList[j].readyToLaunch = false;
                     }
                     if (circleList[j].readyToLaunch && (circleList[j].xVelocity > 10 || circleList[j].yVelocity > 10)){
                         circleList[j].launching = true;
                     }
+                    
                     if (countCirclesNearHand == circlesLeft){
                         circleList[j].launching = true;
                         circleList[j].xVelocity = getRandomSign() * defaultSpeed * 5 / getFPS();
@@ -427,12 +464,16 @@ function getNewCircleCoords(canvas, predictions, mediasource){
                 }            
             }
         }
-        if (circleList[j].readyToLaunch){
-            countCirclesNearHand += 1;
-        }
-        if (circleList[j].launching){
-            circlesLeft -= 1; 
-        }
+        
+        // TODO fix ending goal 
+        // if (circleList[j].readyToLaunch){
+        //     countCirclesNearHand += 1;
+        // }
+        // if (circleList[j].launching){
+        //     circlesLeft -= 1; 
+        // }
+        console.log(countCirclesNearHand);
+        console.log(circlesLeft);
         if (circleList[j].nearHand == -1 && !circleList[j].launching){
             if (Math.abs(circleList[j].xVelocity) < (defaultSpeed / getFPS())){
                 circleList[j].xVelocity = circleList[j].xVelocity + Math.sign(circleList[j].xVelocity);
@@ -461,6 +502,10 @@ function getNewCircleCoords(canvas, predictions, mediasource){
         circleList[j].yCoords = circleList[j].yCoords + circleList[j].yVelocity;
         setCircleColor(circleList[j]);
         makeCircle(circleList[j]);
+        if (circleList[j].launching && ((circleList[j].xCoords > canvas.width || circleList[j].xCoords < 0) || (circleList[j].yCoords > canvas.height || circleList[j].xCoords < 0))){
+            circleList.splice(j, 1);
+            circlesLeft -= 1; 
+        }
     }
 }
 
@@ -479,7 +524,7 @@ function makeCircle(circleObj) {
 //=====================================================================
 // LEVEL TWO
 
-function setEdge(i, j, k, num){
+function setEdge(i, j, k, l, r){
     curEdge = Object.create(edge);
     curEdge.x1 = pattern.points[pattern.polys[i].vertexIndices[j]][0];
     curEdge.y1 = pattern.points[pattern.polys[i].vertexIndices[j]][1];
@@ -487,10 +532,16 @@ function setEdge(i, j, k, num){
     curEdge.y2 = pattern.points[pattern.polys[i].vertexIndices[k]][1];
     curEdge.xcur = Math.floor(Math.random() * canvas.width);
     curEdge.poly = i;
-    curEdge.edgeNumber = num;
+    curEdge.left = l;
+    curEdge.right = r;
     curEdge.length = curEdge.x1 - curEdge.x2;
     curEdge.velocity = 10;
-
+    if (curEdge.x1 < 0 || curEdge.x1 > canvas.width || curEdge.x2 < 0 || curEdge.x2 > canvas.width || curEdge.y1 < 0 || curEdge.y1 > canvas.height || curEdge.y2 < 0 || curEdge.y2 > canvas.height){
+        curEdge.frozen = true;
+        frozenEdges += 1;
+    }else {
+        curEdge.frozen = false;
+    }
     formula = getLine(curEdge.x1, curEdge.y1, curEdge.x2, curEdge.y2);
     curEdge.m = formula[0]; 
     curEdge.b = formula[1];
@@ -501,9 +552,9 @@ function generateTriangles(canvas){
     // this is only done at the beginning of the level
     pattern.toCanvas(canvas);
     for (let i = 0; i < pattern.polys.length; i++){
-        edge1 = setEdge(i, 0, 1, 1);
-        edge2 = setEdge(i, 1, 2, 2);
-        edge3 = setEdge(i, 0, 2, 3);
+        edge1 = setEdge(i, 0, 1, placeholder.length + 1, placeholder.length + 2);
+        edge2 = setEdge(i, 1, 2, placeholder.length, placeholder.length + 2);
+        edge3 = setEdge(i, 0, 2, placeholder.length, placeholder.length + 1);
         
         placeholder.push(edge1);
         placeholder.push(edge2);
@@ -584,12 +635,41 @@ function checkTouching(edge){
 function moveLines(){
     for (let i = 0; i<pattern.polys.length; i++){ 
         if (placeholder[i].frozen || checkTouching(placeholder[i])){
-            placeholder[i].frozen = true;
-            x1 = placeholder[i].x1;
-            y1 = placeholder[i].y1;
-            x2 = placeholder[i].x2;
-            y2 = placeholder[i].y2;
-            drawLine(x1, y1, x2, y2);
+            
+            if (placeholder[placeholder[i].left].frozen && placeholder[placeholder[i].right].frozen){
+                tri = placeholder[i].poly;
+                context.fillStyle = `rgba(
+                    ${pattern.polys[tri].color._rgb[0]},
+                    ${pattern.polys[tri].color._rgb[1]},
+                    ${pattern.polys[tri].color._rgb[2]}, 
+                    ${pattern.polys[tri].color._rgb[3]}
+                )`;
+                context.strokeStyle = `rgba(255, 255, 255, 1)`;
+                context.beginPath();
+                context.moveTo(pattern.points[pattern.polys[tri].vertexIndices[0]][0], pattern.points[pattern.polys[tri].vertexIndices[0]][1]);
+                context.lineTo(pattern.points[pattern.polys[tri].vertexIndices[1]][0], pattern.points[pattern.polys[tri].vertexIndices[1]][1]);
+                context.lineTo(pattern.points[pattern.polys[tri].vertexIndices[2]][0], pattern.points[pattern.polys[tri].vertexIndices[2]][1]);
+                context.closePath();
+                context.stroke();
+                context.fill();
+                // if (!placeholder[i].frozen){
+                //     frozenTris += 1;
+                //     console.log(frozenTris);
+                //     console.log(pattern.polys.length);
+                // }
+            } else {
+                x1 = placeholder[i].x1;
+                y1 = placeholder[i].y1;
+                x2 = placeholder[i].x2;
+                y2 = placeholder[i].y2;
+                drawLine(x1, y1, x2, y2);
+            }
+            if (!placeholder[i].frozen){
+                placeholder[i].frozen = true;
+                frozenEdges += 1;
+                console.log(frozenEdges);
+                console.log(placeholder.length);
+            }
         } else {
             x1 = placeholder[i].xcur;
             y1 = (x1 * placeholder[i].m) + placeholder[i].b;
