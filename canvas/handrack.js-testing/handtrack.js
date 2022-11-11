@@ -33,7 +33,7 @@ const hand = {
 // LEVEL ONE global vars
 let bubbleX = canvas.width / 2;
 let bubbleY = canvas.height / 2;
-let totalCircles = 5;
+let totalCircles = 25;
 let circlesLeft = totalCircles;
 let defaultSpeed = 100;
 let radiusOfAttraction = 275;
@@ -65,7 +65,7 @@ const circle = {
 // LEVEL TWO global vars
 //var tri = new Trianglify();
 const trianglify = window.trianglify;
-const options = {height: canvas.height, width: canvas.width, cellSize: 300,};
+const options = {height: canvas.height, width: canvas.width, cellSize: 250,};
 var pattern = trianglify(options);
 console.log(pattern instanceof trianglify.Pattern); // true
 const edgeList = new Map();
@@ -83,7 +83,8 @@ const edge = {
     xcur: 0,
     length: 0,
     velocity: 10,
-    frozen: true,
+    frozen: false,
+    freezing: false,
 }
 
 function end(){
@@ -182,7 +183,7 @@ function getMouseCoord(predictions, canvas, context, mediasource){
 function updateFrame(canvas, predictions, video){
     // clears canvas each frame and switches between levels also creates small circles
     context.clearRect(0, 0, canvas.width, canvas.height);
-    makeSmallCircles(predictions, video, canvas);
+    
     if (levelOne){
         canvas.style.background = "black";
         getNewCircleCoords(canvas, predictions, video);
@@ -201,6 +202,7 @@ function updateFrame(canvas, predictions, video){
         //     225, 
         //     1)`;
     }
+    makeSmallCircles(predictions, video, canvas);
 }
 
 function translateCoords(vidCoordsX, vidCoordsY, mediasource, canvas){
@@ -463,6 +465,9 @@ function getNewCircleCoords(canvas, predictions, mediasource){
                     circleList[j].yVelocity = Math.sign(circleList[j].yVelocity) * ((Math.random() * defaultSpeed * 2) - defaultSpeed) / getFPS();
                 }            
             }
+        }else if (circleList[j].nearHand != -1){
+            circleList[j].xVelocity = getRandomSign() * ((Math.random() * defaultSpeed * 2) - defaultSpeed) / getFPS();
+            circleList[j].yVelocity = getRandomSign() * ((Math.random() * defaultSpeed * 2) - defaultSpeed) / getFPS();
         }
         
         // TODO fix ending goal 
@@ -525,11 +530,18 @@ function makeCircle(circleObj) {
 // LEVEL TWO
 
 function setEdge(i, j, k, l, r){
+    if (pattern.points[pattern.polys[i].vertexIndices[j]][0] < pattern.points[pattern.polys[i].vertexIndices[k]][0]){
+        one = j;
+        two = k;
+    } else{
+        one = k;
+        two = j
+    }
     curEdge = Object.create(edge);
-    curEdge.x1 = pattern.points[pattern.polys[i].vertexIndices[j]][0];
-    curEdge.y1 = pattern.points[pattern.polys[i].vertexIndices[j]][1];
-    curEdge.x2 = pattern.points[pattern.polys[i].vertexIndices[k]][0];
-    curEdge.y2 = pattern.points[pattern.polys[i].vertexIndices[k]][1];
+    curEdge.x1 = pattern.points[pattern.polys[i].vertexIndices[one]][0];
+    curEdge.y1 = pattern.points[pattern.polys[i].vertexIndices[one]][1];
+    curEdge.x2 = pattern.points[pattern.polys[i].vertexIndices[two]][0];
+    curEdge.y2 = pattern.points[pattern.polys[i].vertexIndices[two]][1];
     curEdge.xcur = Math.floor(Math.random() * canvas.width);
     curEdge.poly = i;
     curEdge.left = l;
@@ -609,6 +621,7 @@ function drawLine(x1, y1, x2, y2){
 }
 
 function checkTouching(edge){
+    size = 6;
     for (let [key, value] of localPred) {
         if (edge.x1 > edge.x2){
             maxx = edge.x1;
@@ -625,6 +638,15 @@ function checkTouching(edge){
             miny = edge.y1;
         }
         if (value.x > minx && value.x < maxx && value.y > miny && value.y < maxy){
+            if (value.x > minx + size && value.y < maxy - size){
+                // top right triangle
+                return false;
+            }
+            if (value.x < maxx - size && value.y > miny + size){
+                // left right triangle
+                return false;
+            }
+            console.log("returning true");
             return true;
         } else {
             return false;
@@ -633,8 +655,25 @@ function checkTouching(edge){
 }
 
 function moveLines(){
-    for (let i = 0; i<pattern.polys.length; i++){ 
-        if (placeholder[i].frozen || checkTouching(placeholder[i])){
+    for (let i = 0; i<placeholder.length; i++){ 
+        if (!placeholder[i].freezing && checkTouching(placeholder[i])){
+            placeholder[i].freezing = true;
+        }
+        if (!placeholder[i].frozen && placeholder[i].freezing){
+            if (placeholder[i].xcur > placeholder[i].x1){
+                if (placeholder[i].m > 0){
+                    if ((placeholder[i].xcur * placeholder[i].m) + placeholder[i].b > placeholder[i].y1){
+                        placeholder[i].frozen = true;
+                    }
+                } else {
+                    if ((placeholder[i].xcur * placeholder[i].m) + placeholder[i].b < placeholder[i].y1){
+                        placeholder[i].frozen = true;
+                    }
+                }
+            } 
+        }
+        
+        if (placeholder[i].frozen){
             
             if (placeholder[placeholder[i].left].frozen && placeholder[placeholder[i].right].frozen){
                 tri = placeholder[i].poly;
