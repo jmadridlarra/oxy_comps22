@@ -611,8 +611,8 @@ function displayTriangles(){
     context.fill();
 }
 
-function drawLine(x1, y1, x2, y2){
-    context.strokeStyle = `rgba(255, 255, 255, 1)`;
+function drawLine(x1, y1, x2, y2, stroke=`rgba(255, 255, 255, 1)`){
+    context.strokeStyle = stroke;
     context.beginPath();
     context.moveTo(x1, y1);
     context.lineTo(x2, y2);
@@ -623,34 +623,36 @@ function drawLine(x1, y1, x2, y2){
 function checkTouching(edge){
     size = 6;
     for (let [key, value] of localPred) {
-        if (edge.x1 > edge.x2){
-            maxx = edge.x1;
-            minx = edge.x2;
-        } else {
-            maxx = edge.x2;
-            minx = edge.x1;
-        }
-        if (edge.y1 > edge.y2){
-            maxy = edge.y1;
-            miny = edge.y2;
-        } else {
-            maxy = edge.y2;
-            miny = edge.y1;
-        }
-        if (value.x > minx && value.x < maxx && value.y > miny && value.y < maxy){
-            if (value.x > minx + size && value.y < maxy - size){
-                // top right triangle
-                return false;
-            }
-            if (value.x < maxx - size && value.y > miny + size){
-                // left right triangle
-                return false;
-            }
-            console.log("returning true");
-            return true;
-        } else {
-            return false;
-        }
+        // if (edge.x1 > edge.x2){
+        //     maxx = edge.x1;
+        //     minx = edge.x2;
+        // } else {
+        //     maxx = edge.x2;
+        //     minx = edge.x1;
+        // }
+        // if (edge.y1 > edge.y2){
+        //     maxy = edge.y1;
+        //     miny = edge.y2;
+        // } else {
+        //     maxy = edge.y2;
+        //     miny = edge.y1;
+        // }
+        // if (value.x + 2.5 > minx && value.x - 2.5 < maxx && value.y + 2.5 > miny && value.y - 2.5 < maxy){
+        //     if (value.x - 2.5 > minx + size && value.y + 2.5 < maxy - size){
+        //         // top right triangle
+        //         return false;
+        //     }
+        //     if (value.x + 2.5 < maxx - size && value.y - 2.5 > miny + size){
+        //         // left right triangle
+        //         return false;
+        //     }
+        //     console.log("returning true");
+        //     return true;
+        // } else {
+        //     return false;
+        // }
+        // TODO you touch a line and it freezes in position
+        // if (edge.xcur )
     }
 }
 
@@ -714,7 +716,11 @@ function moveLines(){
             y1 = (x1 * placeholder[i].m) + placeholder[i].b;
             x2 = placeholder[i].xcur + placeholder[i].length;
             y2 = (x2 * placeholder[i].m) + placeholder[i].b;
-            drawLine(x1, y1, x2, y2);
+            if (placeholder[i].freezing){
+                drawLine(x1, y1, x2, y2, `rgba(10, 100, 255, 1)`);
+            }else{
+                drawLine(x1, y1, x2, y2);
+            }
             // console.log(canvas.width)
             if (x1 > canvas.width){
                 placeholder[i].xcur = -1 * Math.abs(placeholder[i].length);
