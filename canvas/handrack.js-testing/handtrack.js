@@ -33,7 +33,7 @@ const hand = {
 // LEVEL ONE global vars
 let bubbleX = canvas.width / 2;
 let bubbleY = canvas.height / 2;
-let totalCircles = 25;
+let totalCircles = 40;
 let circlesLeft = totalCircles;
 let defaultSpeed = 100;
 let radiusOfAttraction = 275;
@@ -65,7 +65,7 @@ const circle = {
 // LEVEL TWO global vars
 //var tri = new Trianglify();
 const trianglify = window.trianglify;
-const options = {height: canvas.height, width: canvas.width, cellSize: 350,};
+const options = {height: canvas.height, width: canvas.width, cellSize: 250,};
 var pattern = trianglify(options);
 console.log(pattern instanceof trianglify.Pattern); // true
 const edgeList = new Map();
@@ -85,10 +85,10 @@ const edge = {
     b: 0,
     xcur: 0,
     length: 0,
-    velocity: 10,
+    velocity: 15,
     frozen: false,
     freezing: false,
-    color: `rgba(255, 255, 255, 1)`,
+    color: `rgba(135, 206, 250, 1)`, // light blue
 }
 
 function end(){
@@ -369,27 +369,36 @@ function initCircles() {
 
 function setCircleColor(circle){
     if (circle.launching){
-        circle.r = 255;
-        circle.g = 0;
+        circle.r = 0;
+        circle.g = 255;
         circle.b = 0;
     } else if (circle.nearHand != -1){
-        circle.r = 0;
+        //circle.r = 0;
         //circle.g = 255;
         //circle.b = 0;
+        // PURPLE - rgb(191, 64, 191)
+        // YELLOW - rgb(255,255,0)
         if (circle.xVelocity >= circle.yVelocity){
+            // 50 -> 0, 10 -> 255
+            rline = getLine(0, 191, 30, 255);
+            circle.r = (circle.xVelocity * rline[0]) + rline[1];
             // 10-50 yellow 255, 255, 0; green 0, 255, 0
             // 50 -> 255, 10 -> 0
-            gline = getLine(0, 0, 30, 255);
+            gline = getLine(0, 64, 30, 255);
             circle.g = (circle.xVelocity * gline[0]) + gline[1];
             // 50 -> 0, 10 -> 255
-            bline = getLine(0, 255, 30, 0);
+            bline = getLine(0, 191, 30, 0);
             circle.b = (circle.xVelocity * bline[0]) + bline[1];
+            
         } else{
+            // 50 -> 0, 10 -> 255
+            rline = getLine(0, 191, 30, 255);
+            circle.r = (circle.yVelocity * rline[0]) + rline[1];
             // 50 -> 255, 10 -> 0
-            gline = getLine(0, 0, 30, 255);
+            gline = getLine(0, 64, 30, 255);
             circle.g = (circle.yVelocity * gline[0]) + gline[1];
             // 50 -> 0, 10 -> 255
-            bline = getLine(0, 255, 30, 0);
+            bline = getLine(0, 191, 30, 0);
             circle.b = (circle.yVelocity * bline[0]) + bline[1];
         }
     } else {
@@ -574,9 +583,10 @@ function setEdge(i, j, k){
     //curEdge.left = l;
     //curEdge.right = r;
     curEdge.length = curEdge.x2 - curEdge.x1;
-    curEdge.velocity = 2;
+    curEdge.velocity = 5;
     if (curEdge.x1 < 0 || curEdge.x1 > canvas.width || curEdge.x2 < 0 || curEdge.x2 > canvas.width || curEdge.y1 < 0 || curEdge.y1 > canvas.height || curEdge.y2 < 0 || curEdge.y2 > canvas.height){
         curEdge.frozen = true;
+        curEdge.color = `rgba(255, 255, 255, 1)`
         frozenEdges += 1;
     }else {
         curEdge.frozen = false;
@@ -665,10 +675,14 @@ function drawLine(x1, y1, x2, y2, stroke=`rgba(255, 255, 255, 1)`){
 }
 
 function readyToLock(edge){
-    edge.color = `rgba(255, 255, 255, 1)`;
+    edge.color = `rgba(135, 206, 250, 1)`;
     if (edge.xcur >= edge.x1 - edge.length){
         if (edge.xcur < edge.x1 + 6){
-            edge.color = 'green';
+            if (edge.frozen){
+                edge.color = `rgba(255, 0, 0, 1)`;
+            } else {
+                edge.color = `rgba(0, 255, 0, 1)`;
+            }
             //console.log("red");
         } 
     } 
@@ -679,7 +693,7 @@ function checkTouching(edge){
     size = 6;
     touching = false;
     //color = `rgba(255, 255, 255, 1)`;
-    if (edge.color == 'green'){
+    if (edge.color == `rgba(0, 255, 0, 1)`){
         for (let [key, value] of localPred) {
             // if (value.x + 2.5 > minx && value.x - 2.5 < maxx && value.y + 2.5 > miny && value.y - 2.5 < maxy){
             //     if (value.x - 2.5 > minx + size && value.y + 2.5 < maxy - size){
@@ -763,13 +777,14 @@ function moveLines(){
         placeholder[i] = readyToLock(placeholder[i]);
         if (!placeholder[i].freezing && checkTouching(placeholder[i])){
             placeholder[i].freezing = true;
-            placeholder[i].color = 'blue';
+            placeholder[i].color = `rgba(0, 0, 255, 1)`;
         }
         if (!placeholder[i].frozen && placeholder[i].freezing){
             if (placeholder[i].xcur > placeholder[i].x1){
                 if (placeholder[i].m > 0){
                     if ((placeholder[i].xcur * placeholder[i].m) + placeholder[i].b > placeholder[i].y1){
                         placeholder[i].frozen = true;
+                        placeholder[i].color = `rgba(255, 0, 0, 1)`;
                         frozenEdges += 1; 
                         console.log(frozenEdges);
                         console.log(placeholder.length);
@@ -777,6 +792,7 @@ function moveLines(){
                 } else {
                     if ((placeholder[i].xcur * placeholder[i].m) + placeholder[i].b < placeholder[i].y1){
                         placeholder[i].frozen = true;
+                        placeholder[i].color = `rgba(255, 0, 0, 1)`;
                         frozenEdges += 1; 
                         console.log(frozenEdges);
                         console.log(placeholder.length);
