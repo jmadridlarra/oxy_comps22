@@ -33,7 +33,7 @@ const hand = {
 // LEVEL ONE global vars
 let bubbleX = canvas.width / 2;
 let bubbleY = canvas.height / 2;
-let totalCircles = 5;
+let totalCircles = 40;
 let circlesLeft = totalCircles;
 let defaultSpeed = 100;
 let radiusOfAttraction = 275;
@@ -65,7 +65,7 @@ const circle = {
 // LEVEL TWO global vars
 //var tri = new Trianglify();
 const trianglify = window.trianglify;
-const options = {height: canvas.height, width: canvas.width, cellSize: 300,};
+const options = {height: canvas.height, width: canvas.width, cellSize: 250,};
 var pattern = trianglify(options);
 console.log(pattern instanceof trianglify.Pattern); // true
 const edgeList = new Map();
@@ -75,15 +75,20 @@ const edge = {
     y1: 0,
     x2: 0,
     y2: 0,
-    poly: 0,
-    left: 0,
-    right: 0, 
+    poly1: 0, // possibly part of two different triangles
+    poly2: 0,
+    tri1side1: false, // each edge is part of 2 triangles so would have 4 possible sides. 
+    tri1side2: false,
+    tri2side1: false, 
+    tri2side2: false, 
     m: 0, 
     b: 0,
     xcur: 0,
     length: 0,
-    velocity: 10,
-    frozen: true,
+    velocity: 15,
+    frozen: false,
+    freezing: false,
+    color: `rgba(135, 206, 250, 1)`, // light blue
 }
 
 function end(){
@@ -182,7 +187,7 @@ function getMouseCoord(predictions, canvas, context, mediasource){
 function updateFrame(canvas, predictions, video){
     // clears canvas each frame and switches between levels also creates small circles
     context.clearRect(0, 0, canvas.width, canvas.height);
-    makeSmallCircles(predictions, video, canvas);
+    
     if (levelOne){
         canvas.style.background = "black";
         getNewCircleCoords(canvas, predictions, video);
@@ -201,6 +206,7 @@ function updateFrame(canvas, predictions, video){
         //     225, 
         //     1)`;
     }
+    makeSmallCircles(predictions, video, canvas);
 }
 
 function translateCoords(vidCoordsX, vidCoordsY, mediasource, canvas){
@@ -329,10 +335,11 @@ function reset(){
         circlesLeft = totalCircles;
     } else if (levelTwo){
         placeholder = [];
+        frozenEdges = 0;
         pattern = trianglify(options);
         console.log(pattern instanceof trianglify.Pattern); // true
         generateTriangles(canvas);
-        frozenEdges = 0;
+        
     }
 }
 
@@ -355,34 +362,43 @@ function initCircles() {
         circleList[i].yCoords = Math.floor(Math.random() * canvas.height);
         circleList[i].radius = bubbleRadius;
         circleList[i].xVelocity = ((Math.random() * defaultSpeed * 2) - defaultSpeed) / getFPS();
-        console.log(circleList[i].xVelocity);
+        //console.log(circleList[i].xVelocity);
         circleList[i].yVelocity = ((Math.random() * defaultSpeed * 2)- defaultSpeed) / getFPS();
     }
 }
 
 function setCircleColor(circle){
     if (circle.launching){
-        circle.r = 255;
-        circle.g = 0;
+        circle.r = 0;
+        circle.g = 255;
         circle.b = 0;
     } else if (circle.nearHand != -1){
-        circle.r = 0;
+        //circle.r = 0;
         //circle.g = 255;
         //circle.b = 0;
+        // PURPLE - rgb(191, 64, 191)
+        // YELLOW - rgb(255,255,0)
         if (circle.xVelocity >= circle.yVelocity){
+            // 50 -> 0, 10 -> 255
+            rline = getLine(0, 191, 30, 255);
+            circle.r = (circle.xVelocity * rline[0]) + rline[1];
             // 10-50 yellow 255, 255, 0; green 0, 255, 0
             // 50 -> 255, 10 -> 0
-            gline = getLine(0, 0, 30, 255);
+            gline = getLine(0, 64, 30, 255);
             circle.g = (circle.xVelocity * gline[0]) + gline[1];
             // 50 -> 0, 10 -> 255
-            bline = getLine(0, 255, 30, 0);
+            bline = getLine(0, 191, 30, 0);
             circle.b = (circle.xVelocity * bline[0]) + bline[1];
+            
         } else{
+            // 50 -> 0, 10 -> 255
+            rline = getLine(0, 191, 30, 255);
+            circle.r = (circle.yVelocity * rline[0]) + rline[1];
             // 50 -> 255, 10 -> 0
-            gline = getLine(0, 0, 30, 255);
+            gline = getLine(0, 64, 30, 255);
             circle.g = (circle.yVelocity * gline[0]) + gline[1];
             // 50 -> 0, 10 -> 255
-            bline = getLine(0, 255, 30, 0);
+            bline = getLine(0, 191, 30, 0);
             circle.b = (circle.yVelocity * bline[0]) + bline[1];
         }
     } else {
@@ -463,6 +479,9 @@ function getNewCircleCoords(canvas, predictions, mediasource){
                     circleList[j].yVelocity = Math.sign(circleList[j].yVelocity) * ((Math.random() * defaultSpeed * 2) - defaultSpeed) / getFPS();
                 }            
             }
+        }else if (circleList[j].nearHand != -1){
+            circleList[j].xVelocity = getRandomSign() * ((Math.random() * defaultSpeed * 2) - defaultSpeed) / getFPS();
+            circleList[j].yVelocity = getRandomSign() * ((Math.random() * defaultSpeed * 2) - defaultSpeed) / getFPS();
         }
         
         // TODO fix ending goal 
@@ -523,21 +542,51 @@ function makeCircle(circleObj) {
 }
 //=====================================================================
 // LEVEL TWO
+function alreadySet(i, one, two){
+    // checks if an edge has already been added to the array
+    // TODO double check list comprehension
+    for (let j = 0; j < placeholder.length; j++){
+        //console.log(placeholder[j]);
+        if (placeholder[j].x1 == pattern.points[pattern.polys[i].vertexIndices[one]][0] && placeholder[j].y1 == pattern.points[pattern.polys[i].vertexIndices[one]][1] && placeholder[j].x2 == pattern.points[pattern.polys[i].vertexIndices[two]][0] && placeholder[j].y2 == pattern.points[pattern.polys[i].vertexIndices[two]][1]){
+            return j;
+        }
+    }
+    return false;
+}
 
-function setEdge(i, j, k, l, r){
+function setEdge(i, j, k){
+    if (pattern.points[pattern.polys[i].vertexIndices[j]][0] < pattern.points[pattern.polys[i].vertexIndices[k]][0]){
+        one = j;
+        two = k;
+    } else{
+        one = k;
+        two = j;
+    }
+    possible_already_set = alreadySet(i, one, two)
+    //console.log(possible_already_set);
+    if (typeof possible_already_set === 'number'){
+        // set second poly, if it's already set and it's coming back again we assume it's because it's part of two polygons
+        if (placeholder[possible_already_set].poly1 != i){
+            placeholder[possible_already_set].poly2 = i;
+        }    
+        return possible_already_set;
+    }
+
     curEdge = Object.create(edge);
-    curEdge.x1 = pattern.points[pattern.polys[i].vertexIndices[j]][0];
-    curEdge.y1 = pattern.points[pattern.polys[i].vertexIndices[j]][1];
-    curEdge.x2 = pattern.points[pattern.polys[i].vertexIndices[k]][0];
-    curEdge.y2 = pattern.points[pattern.polys[i].vertexIndices[k]][1];
+    curEdge.x1 = pattern.points[pattern.polys[i].vertexIndices[one]][0];
+    curEdge.y1 = pattern.points[pattern.polys[i].vertexIndices[one]][1];
+    curEdge.x2 = pattern.points[pattern.polys[i].vertexIndices[two]][0];
+    curEdge.y2 = pattern.points[pattern.polys[i].vertexIndices[two]][1];
     curEdge.xcur = Math.floor(Math.random() * canvas.width);
-    curEdge.poly = i;
-    curEdge.left = l;
-    curEdge.right = r;
-    curEdge.length = curEdge.x1 - curEdge.x2;
-    curEdge.velocity = 10;
+    curEdge.poly1 = i;
+    // set first poly
+    //curEdge.left = l;
+    //curEdge.right = r;
+    curEdge.length = curEdge.x2 - curEdge.x1;
+    curEdge.velocity = 5;
     if (curEdge.x1 < 0 || curEdge.x1 > canvas.width || curEdge.x2 < 0 || curEdge.x2 > canvas.width || curEdge.y1 < 0 || curEdge.y1 > canvas.height || curEdge.y2 < 0 || curEdge.y2 > canvas.height){
         curEdge.frozen = true;
+        curEdge.color = `rgba(255, 255, 255, 1)`
         frozenEdges += 1;
     }else {
         curEdge.frozen = false;
@@ -547,26 +596,43 @@ function setEdge(i, j, k, l, r){
     curEdge.b = formula[1];
     return curEdge;
 }
+
+function addEdges(possible_edges){
+    indices = [];
+    // collect all the placeholder indices so we can add information about the entire triangle to the edge
+    for (let i = 0; i < possible_edges.length; i++){
+        if (typeof possible_edges[i] === 'number'){
+            indices.push(possible_edges[i]);
+        } else {
+            placeholder.push(possible_edges[i]);
+            indices.push(placeholder.length - 1);
+        }
+    }
+    for (let i = 0; i < indices.length; i++){
+        if (placeholder[indices[i]].tri1side1 === false){
+            placeholder[indices[i]].tri1side1 = indices.at(i - 1);
+            placeholder[indices[i]].tri1side2 = indices.at(i - 2);
+            // add indices of other edges
+        } else if (placeholder[indices[i]].tri2side1 === false){
+            placeholder[indices[i]].tri2side1 = indices.at(i - 1);
+            placeholder[indices[i]].tri2side2 = indices.at(i - 2);
+        } else {
+            throw "all sides defined already"
+        }
+    }
+}
+
 let placeholder = [];
 function generateTriangles(canvas){
     // this is only done at the beginning of the level
     pattern.toCanvas(canvas);
     for (let i = 0; i < pattern.polys.length; i++){
-        edge1 = setEdge(i, 0, 1, placeholder.length + 1, placeholder.length + 2);
-        edge2 = setEdge(i, 1, 2, placeholder.length, placeholder.length + 2);
-        edge3 = setEdge(i, 0, 2, placeholder.length, placeholder.length + 1);
+        edge1 = setEdge(i, 0, 1);
+        edge2 = setEdge(i, 1, 2);
+        edge3 = setEdge(i, 0, 2);
         
-        placeholder.push(edge1);
-        placeholder.push(edge2);
-        placeholder.push(edge3);
-        // key = pattern.points[pattern.polys[i].vertexIndices[0]][0];
-        // if (edgeList.has(key)){
-
-        // } else {
-            
-        // }
+        addEdges([edge1, edge2, edge3]);
     }
-    //displayTriangles();
 }
 
 function displayTriangles(){
@@ -599,8 +665,8 @@ function displayTriangles(){
     context.fill();
 }
 
-function drawLine(x1, y1, x2, y2){
-    context.strokeStyle = `rgba(255, 255, 255, 1)`;
+function drawLine(x1, y1, x2, y2, stroke=`rgba(255, 255, 255, 1)`){
+    context.strokeStyle = stroke;
     context.beginPath();
     context.moveTo(x1, y1);
     context.lineTo(x2, y2);
@@ -608,36 +674,137 @@ function drawLine(x1, y1, x2, y2){
     context.stroke();
 }
 
+function readyToLock(edge){
+    edge.color = `rgba(135, 206, 250, 1)`;
+    if (edge.xcur >= edge.x1 - edge.length){
+        if (edge.xcur < edge.x1 + 6){
+            if (edge.frozen){
+                edge.color = `rgba(255, 0, 0, 1)`;
+            } else {
+                edge.color = `rgba(0, 255, 0, 1)`;
+            }
+            //console.log("red");
+        } 
+    } 
+    return edge;
+}
+
 function checkTouching(edge){
-    for (let [key, value] of localPred) {
-        if (edge.x1 > edge.x2){
-            maxx = edge.x1;
-            minx = edge.x2;
-        } else {
-            maxx = edge.x2;
-            minx = edge.x1;
-        }
-        if (edge.y1 > edge.y2){
-            maxy = edge.y1;
-            miny = edge.y2;
-        } else {
-            maxy = edge.y2;
-            miny = edge.y1;
-        }
-        if (value.x > minx && value.x < maxx && value.y > miny && value.y < maxy){
-            return true;
-        } else {
-            return false;
+    size = 6;
+    touching = false;
+    //color = `rgba(255, 255, 255, 1)`;
+    if (edge.color == `rgba(0, 255, 0, 1)`){
+        for (let [key, value] of localPred) {
+            // if (value.x + 2.5 > minx && value.x - 2.5 < maxx && value.y + 2.5 > miny && value.y - 2.5 < maxy){
+            //     if (value.x - 2.5 > minx + size && value.y + 2.5 < maxy - size){
+            //         // top right triangle
+            //         return false;
+            //     }
+            //     if (value.x + 2.5 < maxx - size && value.y - 2.5 > miny + size){
+            //         // left right triangle
+            //         return false;
+            //     }
+            //     console.log("returning true");
+            //     return true;
+            // } else {
+            //     return false;
+            // }
+            // TODO you touch a line and it freezes in position
+            
+            // console.log("near")
+            // console.log(edge.xcur);
+            // if (edge.xcur < edge.x2){
+            //     color = 'red';
+            // }
+            if (edge.y2 > edge.y1){
+                // negative slope
+                minx = edge.xcur;
+                miny = (edge.m * edge.xcur) + edge.b;
+                maxx = edge.x2;
+                maxy = edge.y2;
+                if (value.x + 5 > minx && value.x - 5 < maxx && value.y + 5 > miny && value.y - 5 < maxy){
+                    // in the rect
+                    if (value.x - 5 > minx + size && value.y + 5 < maxy - size){
+                        // top right triangle
+                        touching = false;
+                        //console.log("top right");
+                    } else if (value.x + 5 < maxx - size && value.y - 5 > miny + size){
+                        // left bottom triangle
+                        touching = false;
+                        //console.log("left bottom");
+                    } else {
+                        //console.log("returning true");
+                        //edge.color = color;
+                        return true;
+                    }
+                    
+                } else {
+                    touching = false;
+                    //console.log("not in rect");
+                }
+            } else {
+                // positive slope
+                minx = edge.xcur;
+                miny = edge.y2;
+                maxx = edge.x2;
+                maxy = (edge.m * edge.xcur) + edge.b;
+                if (value.x + 5 > minx && value.x - 5 < maxx && value.y + 5 > miny && value.y - 5 < maxy){
+                    // in the rect
+                    if (value.x + 5 < maxx - size && value.y + 5 < maxy - size){
+                        // top left triangle
+                        touching = false;
+                        //console.log("top right");
+                    } else if (value.x - 5 > minx + size && value.y - 5 > miny + size){
+                        //  bottom right triangle
+                        touching = false;
+                        //console.log("left bottom");
+                    } else {
+                        //console.log("returning true");
+                        //edge.color = color;
+                        return true;
+                    }
+                }
+            }
+            
         }
     }
+    //edge.color = color;
+    return touching;
 }
 
 function moveLines(){
-    for (let i = 0; i<pattern.polys.length; i++){ 
-        if (placeholder[i].frozen || checkTouching(placeholder[i])){
+    for (let i = 0; i<placeholder.length; i++){ 
+        placeholder[i] = readyToLock(placeholder[i]);
+        if (!placeholder[i].freezing && checkTouching(placeholder[i])){
+            placeholder[i].freezing = true;
+            placeholder[i].color = `rgba(0, 0, 255, 1)`;
+        }
+        if (!placeholder[i].frozen && placeholder[i].freezing){
+            if (placeholder[i].xcur > placeholder[i].x1){
+                if (placeholder[i].m > 0){
+                    if ((placeholder[i].xcur * placeholder[i].m) + placeholder[i].b > placeholder[i].y1){
+                        placeholder[i].frozen = true;
+                        placeholder[i].color = `rgba(255, 0, 0, 1)`;
+                        frozenEdges += 1; 
+                        console.log(frozenEdges);
+                        console.log(placeholder.length);
+                    }
+                } else {
+                    if ((placeholder[i].xcur * placeholder[i].m) + placeholder[i].b < placeholder[i].y1){
+                        placeholder[i].frozen = true;
+                        placeholder[i].color = `rgba(255, 0, 0, 1)`;
+                        frozenEdges += 1; 
+                        console.log(frozenEdges);
+                        console.log(placeholder.length);
+                    }
+                }
+            } 
+        }
+        
+        if (placeholder[i].frozen){
             
-            if (placeholder[placeholder[i].left].frozen && placeholder[placeholder[i].right].frozen){
-                tri = placeholder[i].poly;
+            if (placeholder[placeholder[i].tri1side1].frozen && placeholder[placeholder[i].tri1side2].frozen){
+                tri = placeholder[i].poly1;
                 context.fillStyle = `rgba(
                     ${pattern.polys[tri].color._rgb[0]},
                     ${pattern.polys[tri].color._rgb[1]},
@@ -657,25 +824,44 @@ function moveLines(){
                 //     console.log(frozenTris);
                 //     console.log(pattern.polys.length);
                 // }
-            } else {
+            } 
+            if (placeholder[i].tri2side1 && placeholder[placeholder[i].tri2side1].frozen && placeholder[placeholder[i].tri2side2].frozen){
+                tri = placeholder[i].poly2;
+                context.fillStyle = `rgba(
+                    ${pattern.polys[tri].color._rgb[0]},
+                    ${pattern.polys[tri].color._rgb[1]},
+                    ${pattern.polys[tri].color._rgb[2]}, 
+                    ${pattern.polys[tri].color._rgb[3]}
+                )`;
+                context.strokeStyle = `rgba(255, 255, 255, 1)`;
+                context.beginPath();
+                context.moveTo(pattern.points[pattern.polys[tri].vertexIndices[0]][0], pattern.points[pattern.polys[tri].vertexIndices[0]][1]);
+                context.lineTo(pattern.points[pattern.polys[tri].vertexIndices[1]][0], pattern.points[pattern.polys[tri].vertexIndices[1]][1]);
+                context.lineTo(pattern.points[pattern.polys[tri].vertexIndices[2]][0], pattern.points[pattern.polys[tri].vertexIndices[2]][1]);
+                context.closePath();
+                context.stroke();
+                context.fill();
+            }
+            if (!placeholder[placeholder[i].tri1side1].frozen && placeholder[i].tri2side1 && !placeholder[placeholder[i].tri2side1].frozen){
                 x1 = placeholder[i].x1;
                 y1 = placeholder[i].y1;
                 x2 = placeholder[i].x2;
                 y2 = placeholder[i].y2;
-                drawLine(x1, y1, x2, y2);
+                drawLine(x1, y1, x2, y2, placeholder[i].color);
             }
-            if (!placeholder[i].frozen){
-                placeholder[i].frozen = true;
-                frozenEdges += 1;
-                console.log(frozenEdges);
-                console.log(placeholder.length);
-            }
+            // if (!placeholder[i].frozen){
+            //     placeholder[i].frozen = true;
+            //     frozenEdges += 1;
+            //     console.log(frozenEdges);
+            //     console.log(placeholder.length);
+            // }
         } else {
             x1 = placeholder[i].xcur;
             y1 = (x1 * placeholder[i].m) + placeholder[i].b;
             x2 = placeholder[i].xcur + placeholder[i].length;
             y2 = (x2 * placeholder[i].m) + placeholder[i].b;
-            drawLine(x1, y1, x2, y2);
+            drawLine(x1, y1, x2, y2, placeholder[i].color);
+           
             // console.log(canvas.width)
             if (x1 > canvas.width){
                 placeholder[i].xcur = -1 * Math.abs(placeholder[i].length);
