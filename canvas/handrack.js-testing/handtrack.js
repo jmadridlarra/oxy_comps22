@@ -103,10 +103,6 @@ function startVideo() {
         if (status) {
             updateNote.innerText = "Video started. Now tracking";
             isVideo = true;
-            // context.beginPath();
-            // context.arc(95, 50, 40, 0, 2 * Math.PI);
-            // // context.arc(predictions[0].bbox[0], predictions[0].bbox[1], 40, 0, 2 * Math.PI);
-            // context.stroke();
             reset();
             runDetection();
         } else {
@@ -153,8 +149,6 @@ function switchLevel(){
 // runs the model
 function runDetection() {
     model.detect(video).then(predictions => {
-        //console.log("Predictions: ", predictions);
-        // model.renderPredictions(predictions, canvas, context, video);
         if (predictions.length != 0) {
             getMouseCoord(predictions, canvas, context, video);   
         }
@@ -169,12 +163,10 @@ function runDetection() {
 function getMouseCoord(predictions, canvas, context, mediasource){
     if (!showVideo){
         context.clearRect(0, 0, canvas.width, canvas.height);
-        // console.log("render", mediasource.width, mediasource.height);
         canvas.style.height =
         parseInt(canvas.style.width) *
             (mediasource.height / mediasource.width).toFixed(2) +
         "px";
-        // console.log("render", canvas.style.width, canvas.style.height);
         context.save();
     }
     else{
@@ -187,7 +179,6 @@ function getMouseCoord(predictions, canvas, context, mediasource){
 function updateFrame(canvas, predictions, video){
     // clears canvas each frame and switches between levels also creates small circles
     context.clearRect(0, 0, canvas.width, canvas.height);
-    
     if (levelOne){
         canvas.style.background = "black";
         getNewCircleCoords(canvas, predictions, video);
@@ -199,13 +190,8 @@ function updateFrame(canvas, predictions, video){
         if (frozenEdges == placeholder.length){
             switchLevel();
         }
-        //displayTriangles();
-        // canvas.style.background = `rgba(
-        //     65,
-        //     105,
-        //     225, 
-        //     1)`;
     }
+    // creates the shadow avatar visual representation of the user's hands on the screen as hollow circles
     makeSmallCircles(predictions, video, canvas);
 }
 
@@ -237,12 +223,7 @@ function updateLocalPred(predictions, mediasource, canvas){
                 newHand.width = Math.abs(coords2[0] - coords1[0]);
                 linex = getLine(0, 0, canvas.width, newHand.width);
                 liney = getLine(0, 0, canvas.height, newHand.height);
-                //console.log(linex);
-                // DOUBLE CHECK THIS TODO
-                // centerx = coords1[0] + (newHand.width/2);
-                // if (coords1[0] < (canvas.width - newHand.width / 2)){
 
-                // } else if (coords1[0] )
                 newHand.x = coords1[0] + ((linex[0] * coords1[0]) + linex[1]);
                 newHand.y = coords1[1] + ((liney[0] * coords1[1]) + liney[1]);
                 newHand.sinceConfirmed = 0;
@@ -296,6 +277,7 @@ function probabilityOfMatch(old, cur){
 }
 
 function makeSmallCircles(){
+    // creates the shadow avatar visual representation of the user's hands on the screen as hollow circles
     for (let [key, value] of localPred) {
         if (levelOne){
             context.strokeStyle = `rgba(255, 255, 255, 1)`;
@@ -303,8 +285,6 @@ function makeSmallCircles(){
             context.strokeStyle = `rgba(255, 255, 255, 1)`;
         }
         context.beginPath();
-        // context.arc(95, 50, 40, 0, 2 * Math.PI);
-        //coords = translateCoords(predictions[i].bbox[0], predictions[i].bbox[1], mediasource, canvas)
         context.arc(value.x, value.y, 5, 0, 2 * Math.PI);
         context.stroke();
     }
@@ -318,12 +298,7 @@ function getLine(x1, y1, x2, y2){
     return [m, b];
 }
 
-// function returnY(x, m, b){
-//     return m*x + b;
-// }
-
 function testFunc(){
-    //countCirclesNearHand = 75;
     showVid();
 }
 
@@ -355,14 +330,13 @@ function getRandomSign(){
 // ================================================
 // LEVEL ONE
 function initCircles() {
-    bubbleRadius = 20; //(canvas.width / (totalCircles - 5)) / 1.5;
+    bubbleRadius = 20; 
     for (let i = 0; i < totalCircles; i++){
         circleList[i] = Object.create(circle);
         circleList[i].xCoords = Math.floor(Math.random() * canvas.width);
         circleList[i].yCoords = Math.floor(Math.random() * canvas.height);
         circleList[i].radius = bubbleRadius;
         circleList[i].xVelocity = ((Math.random() * defaultSpeed * 2) - defaultSpeed) / getFPS();
-        //console.log(circleList[i].xVelocity);
         circleList[i].yVelocity = ((Math.random() * defaultSpeed * 2)- defaultSpeed) / getFPS();
     }
 }
@@ -379,29 +353,29 @@ function setCircleColor(circle){
         // PURPLE - rgb(191, 64, 191)
         // YELLOW - rgb(255,255,0)
         if (circle.xVelocity >= circle.yVelocity){
-            // 50 -> 0, 10 -> 255
+            // 0 -> 30, 191 -> 255
             rline = getLine(0, 191, 30, 255);
             circle.r = (circle.xVelocity * rline[0]) + rline[1];
-            // 10-50 yellow 255, 255, 0; green 0, 255, 0
-            // 50 -> 255, 10 -> 0
+            // 0 -> 30, 64 -> 255
             gline = getLine(0, 64, 30, 255);
             circle.g = (circle.xVelocity * gline[0]) + gline[1];
-            // 50 -> 0, 10 -> 255
+            // 0 -> 30, 191 -> 0
             bline = getLine(0, 191, 30, 0);
             circle.b = (circle.xVelocity * bline[0]) + bline[1];
             
         } else{
-            // 50 -> 0, 10 -> 255
+            // 0 -> 30, 191 -> 255
             rline = getLine(0, 191, 30, 255);
             circle.r = (circle.yVelocity * rline[0]) + rline[1];
-            // 50 -> 255, 10 -> 0
+            // 0 -> 30, 64 -> 255
             gline = getLine(0, 64, 30, 255);
             circle.g = (circle.yVelocity * gline[0]) + gline[1];
-            // 50 -> 0, 10 -> 255
+            // 0 -> 30, 191 -> 0
             bline = getLine(0, 191, 30, 0);
             circle.b = (circle.yVelocity * bline[0]) + bline[1];
         }
     } else {
+        // white
         circle.r = 255;
         circle.g = 255;
         circle.b = 255;
@@ -409,8 +383,9 @@ function setCircleColor(circle){
 }
 
 function getNewCircleCoords(canvas, predictions, mediasource){
-    //countCirclesNearHand = 0;
+    // moves the circles each frame
     for (let j = 0; j < circleList.length; j++) {
+        // checks if a circle is on an edge
         if (circleList[j].xCoords > circleList[j].radius){
             onLeft = false;
         }else{
@@ -432,10 +407,10 @@ function getNewCircleCoords(canvas, predictions, mediasource){
         } else {
             onTop = true;
         }
+
         circleList[j].nearHand = -1;
         if (localPred.size > 0 && !circleList[j].launching){
             for (let [key, value] of localPred) {
-                //var convertedCoords = translateCoords(value.bbox[0], value.bbox[1], mediasource, canvas);
                 var xDist = value.x - circleList[j].xCoords;
                 var yDist = value.y - circleList[j].yCoords;
                 if (Math.abs(xDist) < radiusOfAttraction && Math.abs(yDist) < radiusOfAttraction && !onTop && !onBottom && !onRight && !onLeft){
@@ -483,14 +458,6 @@ function getNewCircleCoords(canvas, predictions, mediasource){
             circleList[j].xVelocity = getRandomSign() * ((Math.random() * defaultSpeed * 2) - defaultSpeed) / getFPS();
             circleList[j].yVelocity = getRandomSign() * ((Math.random() * defaultSpeed * 2) - defaultSpeed) / getFPS();
         }
-        
-        // TODO fix ending goal 
-        // if (circleList[j].readyToLaunch){
-        //     countCirclesNearHand += 1;
-        // }
-        // if (circleList[j].launching){
-        //     circlesLeft -= 1; 
-        // }
         console.log(countCirclesNearHand);
         console.log(circlesLeft);
         if (circleList[j].nearHand == -1 && !circleList[j].launching){
@@ -563,7 +530,6 @@ function setEdge(i, j, k){
         two = j;
     }
     possible_already_set = alreadySet(i, one, two)
-    //console.log(possible_already_set);
     if (typeof possible_already_set === 'number'){
         // set second poly, if it's already set and it's coming back again we assume it's because it's part of two polygons
         if (placeholder[possible_already_set].poly1 != i){
@@ -579,9 +545,6 @@ function setEdge(i, j, k){
     curEdge.y2 = pattern.points[pattern.polys[i].vertexIndices[two]][1];
     curEdge.xcur = Math.floor(Math.random() * canvas.width);
     curEdge.poly1 = i;
-    // set first poly
-    //curEdge.left = l;
-    //curEdge.right = r;
     curEdge.length = curEdge.x2 - curEdge.x1;
     curEdge.velocity = 5;
     if (curEdge.x1 < 0 || curEdge.x1 > canvas.width || curEdge.x2 < 0 || curEdge.x2 > canvas.width || curEdge.y1 < 0 || curEdge.y1 > canvas.height || curEdge.y2 < 0 || curEdge.y2 > canvas.height){
@@ -637,8 +600,6 @@ function generateTriangles(canvas){
 
 function displayTriangles(){
     for (let i = 0; i<pattern.polys.length; i++){
-        // console.log(pattern.polys[i].vertexIndices)
-        // console.log(pattern.polys[i].color._rgb[0])
         context.fillStyle = `rgba(
             ${pattern.polys[i].color._rgb[0]},
             ${pattern.polys[i].color._rgb[1]},
@@ -683,7 +644,6 @@ function readyToLock(edge){
             } else {
                 edge.color = `rgba(0, 255, 0, 1)`;
             }
-            //console.log("red");
         } 
     } 
     return edge;
@@ -695,27 +655,7 @@ function checkTouching(edge){
     //color = `rgba(255, 255, 255, 1)`;
     if (edge.color == `rgba(0, 255, 0, 1)`){
         for (let [key, value] of localPred) {
-            // if (value.x + 2.5 > minx && value.x - 2.5 < maxx && value.y + 2.5 > miny && value.y - 2.5 < maxy){
-            //     if (value.x - 2.5 > minx + size && value.y + 2.5 < maxy - size){
-            //         // top right triangle
-            //         return false;
-            //     }
-            //     if (value.x + 2.5 < maxx - size && value.y - 2.5 > miny + size){
-            //         // left right triangle
-            //         return false;
-            //     }
-            //     console.log("returning true");
-            //     return true;
-            // } else {
-            //     return false;
-            // }
             // TODO you touch a line and it freezes in position
-            
-            // console.log("near")
-            // console.log(edge.xcur);
-            // if (edge.xcur < edge.x2){
-            //     color = 'red';
-            // }
             if (edge.y2 > edge.y1){
                 // negative slope
                 minx = edge.xcur;
@@ -727,20 +667,15 @@ function checkTouching(edge){
                     if (value.x - 5 > minx + size && value.y + 5 < maxy - size){
                         // top right triangle
                         touching = false;
-                        //console.log("top right");
                     } else if (value.x + 5 < maxx - size && value.y - 5 > miny + size){
                         // left bottom triangle
                         touching = false;
-                        //console.log("left bottom");
                     } else {
-                        //console.log("returning true");
-                        //edge.color = color;
                         return true;
                     }
                     
                 } else {
                     touching = false;
-                    //console.log("not in rect");
                 }
             } else {
                 // positive slope
@@ -753,14 +688,10 @@ function checkTouching(edge){
                     if (value.x + 5 < maxx - size && value.y + 5 < maxy - size){
                         // top left triangle
                         touching = false;
-                        //console.log("top right");
                     } else if (value.x - 5 > minx + size && value.y - 5 > miny + size){
                         //  bottom right triangle
                         touching = false;
-                        //console.log("left bottom");
                     } else {
-                        //console.log("returning true");
-                        //edge.color = color;
                         return true;
                     }
                 }
@@ -819,11 +750,6 @@ function moveLines(){
                 context.closePath();
                 context.stroke();
                 context.fill();
-                // if (!placeholder[i].frozen){
-                //     frozenTris += 1;
-                //     console.log(frozenTris);
-                //     console.log(pattern.polys.length);
-                // }
             } 
             if (placeholder[i].tri2side1 && placeholder[placeholder[i].tri2side1].frozen && placeholder[placeholder[i].tri2side2].frozen){
                 tri = placeholder[i].poly2;
@@ -849,12 +775,7 @@ function moveLines(){
                 y2 = placeholder[i].y2;
                 drawLine(x1, y1, x2, y2, placeholder[i].color);
             }
-            // if (!placeholder[i].frozen){
-            //     placeholder[i].frozen = true;
-            //     frozenEdges += 1;
-            //     console.log(frozenEdges);
-            //     console.log(placeholder.length);
-            // }
+
         } else {
             x1 = placeholder[i].xcur;
             y1 = (x1 * placeholder[i].m) + placeholder[i].b;
@@ -862,15 +783,13 @@ function moveLines(){
             y2 = (x2 * placeholder[i].m) + placeholder[i].b;
             drawLine(x1, y1, x2, y2, placeholder[i].color);
            
-            // console.log(canvas.width)
             if (x1 > canvas.width){
                 placeholder[i].xcur = -1 * Math.abs(placeholder[i].length);
             } else {
                 placeholder[i].xcur = x1 + placeholder[i].velocity;
             }
         }
-        // console.log(placeholder[0]);
-        // console.log(y1);
+
     }
 }
 // Load the model.
