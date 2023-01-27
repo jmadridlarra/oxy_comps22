@@ -19,6 +19,8 @@ const modelParams = {
 
 let levelOne = true;
 let levelTwo = false;
+let levelThree = false;
+let levelFour = false;
 
 const hand = {
     x: 0,
@@ -91,6 +93,23 @@ const edge = {
     color: `rgba(135, 206, 250, 1)`, // light blue
 }
 
+//========================================
+// LEVEL THREE global vars
+const blobList = [];
+const miniBlob = {
+    isConnecting: false,
+    x: canvas.width / 2,
+    y: canvas.height / 2,
+    yVelocity: defaultSpeed * 0.8,
+    xVelocity: defaultSpeed * 0.8,
+    r: 255,
+    g: 165,
+    b: 0,
+    a: 1, 
+    isCut: false,
+}
+
+
 function end(){
     model.dispose();
     showVid();
@@ -145,8 +164,19 @@ function showVid() {
 }
 
 function switchLevel(){
-    levelOne = !levelOne;
-    levelTwo = !levelTwo;
+    if (levelOne){
+        levelOne = false;
+        levelTwo = true;
+    }else if (levelTwo){
+        levelTwo = false;
+        levelThree = true;
+    } else if (levelThree){
+        levelThree = false;
+        levelFour = true;
+    } else {
+        levelFour = false;
+        levelOne = true;
+    }
     reset();
 }
 
@@ -205,6 +235,10 @@ function updateFrame(canvas, predictions, video){
         //     105,
         //     225, 
         //     1)`;
+    } else if (levelThree){
+        moveBlobs();
+    } else {
+        growRects();
     }
     makeSmallCircles(predictions, video, canvas);
 }
@@ -318,10 +352,6 @@ function getLine(x1, y1, x2, y2){
     return [m, b];
 }
 
-// function returnY(x, m, b){
-//     return m*x + b;
-// }
-
 function testFunc(){
     //countCirclesNearHand = 75;
     showVid();
@@ -340,6 +370,8 @@ function reset(){
         console.log(pattern instanceof trianglify.Pattern); // true
         generateTriangles(canvas);
         
+    } else if (levelThree){
+        initBlobs();
     }
 }
 
@@ -819,11 +851,6 @@ function moveLines(){
                 context.closePath();
                 context.stroke();
                 context.fill();
-                // if (!placeholder[i].frozen){
-                //     frozenTris += 1;
-                //     console.log(frozenTris);
-                //     console.log(pattern.polys.length);
-                // }
             } 
             if (placeholder[i].tri2side1 && placeholder[placeholder[i].tri2side1].frozen && placeholder[placeholder[i].tri2side2].frozen){
                 tri = placeholder[i].poly2;
@@ -849,12 +876,6 @@ function moveLines(){
                 y2 = placeholder[i].y2;
                 drawLine(x1, y1, x2, y2, placeholder[i].color);
             }
-            // if (!placeholder[i].frozen){
-            //     placeholder[i].frozen = true;
-            //     frozenEdges += 1;
-            //     console.log(frozenEdges);
-            //     console.log(placeholder.length);
-            // }
         } else {
             x1 = placeholder[i].xcur;
             y1 = (x1 * placeholder[i].m) + placeholder[i].b;
@@ -873,6 +894,10 @@ function moveLines(){
         // console.log(y1);
     }
 }
+
+// ================================================
+// LEVEL THREE
+
 // Load the model.
 handTrack.load(modelParams).then(lmodel => {
     // detect objects in the image.
