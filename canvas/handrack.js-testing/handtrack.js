@@ -96,17 +96,26 @@ const edge = {
 //========================================
 // LEVEL THREE global vars
 const blobList = [];
+const totalBlobs = 1;
 const miniBlob = {
-    isConnecting: false,
-    x: canvas.width / 2,
-    y: canvas.height / 2,
-    yVelocity: defaultSpeed * 0.8,
-    xVelocity: defaultSpeed * 0.8,
+    // isConnecting: false,
+    // x: canvas.width / 2,
+    // y: canvas.height / 2,
+    // yVelocity: defaultSpeed * 0.8,
+    // xVelocity: defaultSpeed * 0.8,
     r: 255,
     g: 165,
     b: 0,
     a: 1, 
-    isCut: false,
+    // isCut: false,
+    points: [
+       // [200, 150],
+        [400, 500],
+        [600, 600],
+        [800, 400],
+        [750, 300],
+        [300, 200],
+    ],
 }
 
 
@@ -326,6 +335,140 @@ function makeSmallCircles(){
     }
 }
 
+//==================================================
+// linear algebra helper methods - adapted from vector.js
+function Vector(x, y) {
+    this.x = x || 0;
+    this.y = y || 0;
+  }
+
+  Vector.prototype = {
+    negative: function() {
+      return new Vector(-this.x, -this.y);
+    },
+    add: function(v) {
+      if (v instanceof Vector) return new Vector(this.x + v.x, this.y + v.y);
+      else return new Vector(this.x + v, this.y + v);
+    },
+    subtract: function(v) {
+      if (v instanceof Vector) return new Vector(this.x - v.x, this.y - v.y);
+      else return new Vector(this.x - v, this.y - v);
+    },
+    multiply: function(v) {
+      if (v instanceof Vector) return new Vector(this.x * v.x, this.y * v.y);
+      else return new Vector(this.x * v, this.y * v);
+    },
+    divide: function(v) {
+      if (v instanceof Vector) return new Vector(this.x / v.x, this.y / v.y);
+      else return new Vector(this.x / v, this.y / v);
+    },
+    equals: function(v) {
+      return this.x == v.x && this.y == v.y;
+    },
+    dot: function(v) {
+      return this.x * v.x + this.y * v.y;
+    },
+    // cross: function(v) {
+    //   return new Vector(
+    //     this.y * v.z - this.z * v.y,
+    //     this.z * v.x - this.x * v.z,
+    //     this.x * v.y - this.y * v.x
+    //   );
+    // },
+    length: function() {
+      return Math.sqrt(this.dot(this));
+    },
+    unit: function() {
+      return this.divide(this.length());
+    },
+    min: function() {
+      return Math.min(this.x, this.y);
+    },
+    max: function() {
+      return Math.max(this.x, this.y);
+    },
+    // toAngles: function() {
+    //   return {
+    //     theta: Math.atan2(this.z, this.x),
+    //     phi: Math.asin(this.y / this.length())
+    //   };
+    // },
+    angleTo: function(a) {
+      return Math.acos(this.dot(a) / (this.length() * a.length()));
+    },
+    toArray: function(n) {
+      return [this.x, this.y].slice(0, n || 2);
+    },
+    clone: function() {
+      return new Vector(this.x, this.y);
+    },
+    init: function(x, y) {
+      this.x = x; this.y = y; 
+      return this;
+    }
+  };
+  //Static Methods
+  //Vector.randomDirection() returns a vector with a length of 1 and a statistically uniform direction. Vector.lerp() performs linear interpolation between two vectors.
+  
+  Vector.negative = function(a, b) {
+    b.x = -a.x; b.y = -a.y;
+    return b;
+  };
+  Vector.add = function(a, b, c) {
+    if (b instanceof Vector) { c.x = a.x + b.x; c.y = a.y + b.y;}
+    else { c.x = a.x + b; c.y = a.y + b;}
+    return c;
+  };
+  Vector.subtract = function(a, b, c) {
+    if (b instanceof Vector) { c.x = a.x - b.x; c.y = a.y - b.y;}
+    else { c.x = a.x - b; c.y = a.y - b;}
+    return c;
+  };
+  Vector.multiply = function(a, b, c) {
+    if (b instanceof Vector) { c.x = a.x * b.x; c.y = a.y * b.y;}
+    else { c.x = a.x * b; c.y = a.y * b;}
+    return c;
+  };
+  Vector.divide = function(a, b, c) {
+    if (b instanceof Vector) { c.x = a.x / b.x; c.y = a.y / b.y;}
+    else { c.x = a.x / b; c.y = a.y / b;}
+    return c;
+  };
+//   Vector.cross = function(a, b, c) {
+//     c.x = a.y * b.z - a.z * b.y;
+//     c.y = a.z * b.x - a.x * b.z;
+//     c.z = a.x * b.y - a.y * b.x;
+//     return c;
+//   };
+  Vector.unit = function(a, b) {
+    var length = a.length();
+    b.x = a.x / length;
+    b.y = a.y / length;
+    return b;
+  };
+  Vector.fromAngles = function(theta, phi) {
+    return new Vector(Math.cos(theta) * Math.cos(phi), Math.sin(phi), Math.sin(theta) * Math.cos(phi));
+  };
+  Vector.randomDirection = function() {
+    return Vector.fromAngles(Math.random() * Math.PI * 2, Math.asin(Math.random() * 2 - 1));
+  };
+  Vector.min = function(a, b) {
+    return new Vector(Math.min(a.x, b.x), Math.min(a.y, b.y));
+  };
+  Vector.max = function(a, b) {
+    return new Vector(Math.max(a.x, b.x), Math.max(a.y, b.y));
+  };
+  Vector.lerp = function(a, b, fraction) {
+    return b.subtract(a).multiply(fraction).add(a);
+  };
+  Vector.fromArray = function(a) {
+    return new Vector(a[0], a[1]);
+  };
+  Vector.angleBetween = function(a, b) {
+    return a.angleTo(b);
+  };
+  
+
 //================================================
 // MISC HELPER METHODS
 function getLine(x1, y1, x2, y2){
@@ -353,6 +496,8 @@ function reset(){
         
     } else if (levelThree){
         initBlobs();
+    } else {
+        initRects();
     }
 }
 
@@ -833,7 +978,170 @@ function moveLines(){
 
 // ================================================
 // LEVEL THREE
+function initBlobs(){
+    for (let i = 0; i < totalBlobs; i++){
+        blobList[i] = Object.create(miniBlob);
+        blobList[i].x = Math.floor(Math.random() * canvas.width);
+        blobList[i].y = Math.floor(Math.random() * canvas.height);
+        blobList[i].xVelocity = defaultSpeed / getFPS();
+        blobList[i].yVelocity = defaultSpeed / getFPS();
+    }
+}
 
+function moveBlobs(){
+    for (let i = 0; i < totalBlobs; i++){
+        //TODO: have points move randomly and bounce off the screen
+        sortByConvexHull(blobList[i]);
+        setBlobColor(blobList[i]);
+        drawBlob(blobList[i]);
+        drawPoints(blobList[i]);
+    }
+}
+
+function drawPoints(blob){
+    // 0 -> 30, 191 -> 255
+    rline = getLine(0, 100, 6, 255);
+    for (let i = 0; i < blob.points.length; i++){
+        context.fillStyle = `rgba(
+            ${i * rline[0] + rline[1]},
+            ${i * rline[0] + rline[1]},
+            ${i * rline[0] + rline[1]}, 
+            ${1})`;
+        context.beginPath();
+        context.arc(blob.points[i][0], blob.points[i][1], 5, 0, 2 * Math.PI);
+        context.stroke();
+        context.fill();
+    }
+}
+function setBlobColor(blob){
+    blob.r = 255
+    blob.g = 255;
+    blob.b = 255;
+    blob.a = 1;
+}
+function drawBlob(blobObj) {
+    context.fillStyle = `rgba(
+        ${blobObj.r},
+        ${blobObj.g},
+        ${blobObj.b}, 
+        ${blobObj.a})`;
+    console.log("beginning path")
+    context.beginPath();
+    context.moveTo(blobObj.points[0][0], blobObj.points[0][1]);
+    firstSeg = calcSegment(blobObj.points[blobObj.points.length-1], blobObj.points[0], blobObj.points[1], blobObj.points[2]);
+    for (let j = 0; j <= 1; j += 0.01){
+        curPoint = getPointOnSeg(firstSeg, j).toArray();
+        console.log(curPoint);
+        context.lineTo(curPoint[0], curPoint[1]);
+    }
+
+    for (let i = 0; i < blobObj.points.length - 4; i++){
+        curSeg = calcSegment(blobObj.points[i], blobObj.points[i+1], blobObj.points[i+2], blobObj.points[i+3]);
+        for (let j = 0; j <= 1; j += 0.01){
+            curPoint = getPointOnSeg(curSeg, j).toArray();
+            console.log(curPoint);
+            context.lineTo(curPoint[0], curPoint[1]);
+        }
+    }
+    penSeg = calcSegment(blobObj.points[blobObj.points.length-3], blobObj.points[blobObj.points.length-2], blobObj.points[blobObj.points.length-1], blobObj.points[0]);
+    for (let j = 0; j <= 1; j += 0.01){
+        curPoint = getPointOnSeg(penSeg, j).toArray();
+        console.log(curPoint);
+        context.lineTo(curPoint[0], curPoint[1]);
+    }
+    lastSeg = calcSegment(blobObj.points[blobObj.points.length-2], blobObj.points[blobObj.points.length-1], blobObj.points[0], blobObj.points[1]);
+    for (let j = 0; j <= 1; j += 0.01){
+        curPoint = getPointOnSeg(lastSeg, j).toArray();
+        console.log(curPoint);
+        context.lineTo(curPoint[0], curPoint[1]);
+    }
+
+    context.stroke();
+    //context.fill();
+    console.log("filling")
+}
+
+function cross(a, b, o) {
+    return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+ }
+ 
+
+function convexHull(points) {
+    points.sort(function(a, b) {
+       return a[0] == b[0] ? a[1] - b[1] : a[0] - b[0];
+    });
+ 
+    var lower = [];
+    for (var i = 0; i < points.length; i++) {
+       while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], points[i]) <= 0) {
+          lower.pop();
+       }
+       lower.push(points[i]);
+    }
+ 
+    var upper = [];
+    for (var i = points.length - 1; i >= 0; i--) {
+       while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], points[i]) <= 0) {
+          upper.pop();
+       }
+       upper.push(points[i]);
+    }
+ 
+    upper.pop();
+    lower.pop();
+    return lower.concat(upper);
+}
+
+function sortByConvexHull(blob){
+    blob.points = convexHull(blob.points);
+}
+
+function distance(p0, p1){
+    return Math.pow(Math.pow(p0[0]-p1[0], 2) + Math.pow(p1[1]-p1[1], 2), 0.5);
+}
+
+function calcSegment(p0, p1, p2, p3,){
+    alpha = 1; // 0 for uniform Catmull-Rom Splines - 1 for chordal variant , 0.5 for centripital variant
+    tension = 0; // smooth curve, 1=straight lines
+    segment = []; // the coefficients of the polynomials at^3 + bt^2 + ct + d
+
+
+    t01 = Math.pow(distance(p0, p1), alpha);
+    t12 = Math.pow(distance(p1, p2), alpha);
+    t23 = Math.pow(distance(p2, p3), alpha);
+
+    p0 = Vector.fromArray(p0);
+    p1 = Vector.fromArray(p1);
+    p2 = Vector.fromArray(p2);
+    p3 = Vector.fromArray(p3);
+    
+
+    m1 = (p2.subtract(p1).add(t12).multiply(((p1.subtract(p0)).divide(t01).subtract((p2.subtract(p0)).divide((t01 + t12)))))).multiply((1 - tension));
+    m2 = (p2.subtract(p1).add(t12).multiply(((p3.subtract(p2)).divide(t23).subtract((p3.subtract(p1)).divide((t12 + t23)))))).multiply((1 - tension));
+
+    segment[0] = (p1.subtract(p2)).multiply(2).add(m1).add(m2);
+    segment[1] = (p1.subtract(p2)).multiply(-3).subtract(m1).subtract(m1).subtract(m2);
+    segment[2] = m1;
+    segment[3] = p1;
+    return segment;
+}
+
+function getPointOnSeg(segment, t){
+    // t should be from 0-1 where 0 is the start and 1 is the end
+    point = segment[0].multiply(t * t * t).add(
+             segment[1].multiply(t * t)).add(
+             segment[2].multiply(t)).add(
+             segment[3]);
+    return point;
+}
+// ================================================
+// LEVEL FOUR
+function initRects(){
+
+}
+function growRects(){
+
+}
 // Load the model.
 handTrack.load(modelParams).then(lmodel => {
     // detect objects in the image.
