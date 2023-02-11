@@ -108,20 +108,16 @@ const miniBlob = {
     b: 0,
     a: 1, 
     // isCut: false,
-    points: [
-       // [200, 150],
-        [400, 500],
-        [600, 600],
-        [800, 400],
-        [750, 300],
-        [300, 200],
-    ],
+    pointsInBlob: [],
+    convexPoints: [],
 }
-
-
-function end(){
-    model.dispose();
-    showVid();
+const indivPoint = {
+    ID:0,
+    x: canvas.width / 2,
+    y: canvas.height / 2,
+    yVelocity: defaultSpeed * 0.8,
+    xVelocity: defaultSpeed * 0.8,
+    near: [],
 }
 
 // starts video
@@ -979,44 +975,122 @@ function moveLines(){
 // ================================================
 // LEVEL THREE
 function initBlobs(){
+    console.log("init")
+    pointsList = [];
+    for (let i = 0; i < 8; i++){
+        pointsList[i] = Object.create(indivPoint);
+        pointsList[i].ID = Math.floor(Math.random() * 1000);
+        //console.log(pointsList[i].ID);
+        pointsList[i].x = Math.floor(canvas.width * Math.random());
+        //console.log(pointsList[i].x);
+        pointsList[i].y = Math.floor(canvas.height * Math.random());
+        pointsList[i].yVelocity = defaultSpeed * 0.01 * getRandomSign();
+        pointsList[i].xVelocity = defaultSpeed * 0.01 * getRandomSign();
+        pointsList[i].near = [];
+    }
+    //console.log(pointsList);
     for (let i = 0; i < totalBlobs; i++){
         blobList[i] = Object.create(miniBlob);
-        blobList[i].x = Math.floor(Math.random() * canvas.width);
-        blobList[i].y = Math.floor(Math.random() * canvas.height);
-        blobList[i].xVelocity = defaultSpeed / getFPS();
-        blobList[i].yVelocity = defaultSpeed / getFPS();
-    }
+        blobList[i].pointsInBlob = pointsList;
+    }    
+    //console.log(blobList[0].points);
 }
 
 function moveBlobs(){
     for (let i = 0; i < totalBlobs; i++){
         //TODO: have points move randomly and bounce off the screen
+        console.log("convex")
+        //console.log(blobList[i].points);
+        getNewPointCoords(blobList[i]);
+        //console.log(blobList[i].points);
         sortByConvexHull(blobList[i]);
+        console.log(blobList[i].pointsList);
         setBlobColor(blobList[i]);
         drawBlob(blobList[i]);
         drawPoints(blobList[i]);
     }
 }
 
+function getNewPointCoords(blob){
+    // moves the circles each frame
+    // checks if a point is on an edge
+    for (let i = 0; i < blob.pointsInBlob.length; i++){
+        if (blob.pointsInBlob[i].x > 5){
+            onLeft = false;
+        }else{
+            onLeft = true;
+        } 
+        if (blob.pointsInBlob[i].x < canvas.width - 5){
+            onRight = false;
+        }
+        else{
+            onRight = true;
+        }
+        if (blob.pointsInBlob[i].y > 5){
+            onBottom = false;
+        } else{
+            onBottom = true;   
+        }    
+        if (blob.pointsInBlob[i].y < canvas.height - 5){
+            onTop = false;
+        } else {
+            onTop = true;
+        }
+
+        // if (Math.abs(blob.points[i].xVelocity) < (defaultSpeed / getFPS())){
+        //     // returns to default speed
+        //     blob.points[i].xVelocity = blob.points[i].xVelocity + Math.sign(blob.points[i].xVelocity);
+        // }
+        // if (Math.abs(blob.points[i].yVelocity) < (defaultSpeed / getFPS())){
+        //     blob.points[i].yVelocity = blob.points[i].yVelocity + Math.sign(blob.points[i].yVelocity);
+        // }
+        if (onTop){
+            blob.pointsInBlob[i].yVelocity = blob.pointsInBlob[i].yVelocity * -1;
+            blob.pointsInBlob[i].y = canvas.height - 5;
+        }
+        if (onBottom){
+            blob.pointsInBlob[i].y = 5;
+            blob.pointsInBlob[i].yVelocity = blob.pointsInBlob[i].yVelocity * -1;
+        }
+        if (onLeft){
+            blob.pointsInBlob[i].xVelocity = blob.pointsInBlob[i].xVelocity * -1;
+            blob.pointsInBlob[i].x = 5;
+        }
+        if (onRight){
+            blob.pointsInBlob[i].xVelocity = blob.pointsInBlob[i].xVelocity * -1;
+            blob.pointsInBlob[i].x = canvas.width - 5;
+        }
+
+        blob.pointsInBlob[i].x = blob.pointsInBlob[i].x + blob.pointsInBlob[i].xVelocity;
+        blob.pointsInBlob[i].y = blob.pointsInBlob[i].y + blob.pointsInBlob[i].yVelocity;
+    }
+}
+
+function getCoordList(point){
+    return [point.x, point.y];
+}
+
 function drawPoints(blob){
+    // draws all points
+    // FOR DEBUGGING
     // 0 -> 30, 191 -> 255
     rline = getLine(0, 100, 6, 255);
-    for (let i = 0; i < blob.points.length; i++){
+    for (let i = 0; i < blob.pointsInBlob.length; i++){
         context.fillStyle = `rgba(
             ${i * rline[0] + rline[1]},
             ${i * rline[0] + rline[1]},
-            ${i * rline[0] + rline[1]}, 
+            ${0}, 
             ${1})`;
         context.beginPath();
-        context.arc(blob.points[i][0], blob.points[i][1], 5, 0, 2 * Math.PI);
+        context.arc(blob.pointsInBlob[i].x, blob.pointsInBlob[i].y, 5, 0, 2 * Math.PI);
         context.stroke();
         context.fill();
     }
 }
 function setBlobColor(blob){
-    blob.r = 255
-    blob.g = 255;
-    blob.b = 255;
+    blob.r = 100;
+    blob.g = 50;
+    blob.b = 200;
     blob.a = 1;
 }
 function drawBlob(blobObj) {
@@ -1027,49 +1101,55 @@ function drawBlob(blobObj) {
         ${blobObj.a})`;
     console.log("beginning path")
     context.beginPath();
-    context.moveTo(blobObj.points[0][0], blobObj.points[0][1]);
-    firstSeg = calcSegment(blobObj.points[blobObj.points.length-1], blobObj.points[0], blobObj.points[1], blobObj.points[2]);
+    context.moveTo(blobObj.convexPoints[0].x, blobObj.convexPoints[0].y);
+    //console.log(blobObj.convexPoints);
+    firstSeg = calcSegment(getCoordList(blobObj.convexPoints[blobObj.convexPoints.length-1]), getCoordList(blobObj.convexPoints[0]), getCoordList(blobObj.convexPoints[1]), getCoordList(blobObj.convexPoints[2]));
     for (let j = 0; j <= 1; j += 0.01){
         curPoint = getPointOnSeg(firstSeg, j).toArray();
-        console.log(curPoint);
+        //console.log(curPoint);
         context.lineTo(curPoint[0], curPoint[1]);
     }
 
-    for (let i = 0; i < blobObj.points.length - 4; i++){
-        curSeg = calcSegment(blobObj.points[i], blobObj.points[i+1], blobObj.points[i+2], blobObj.points[i+3]);
+    for (let i = 0; i < blobObj.convexPoints.length - 4; i++){
+        curSeg = calcSegment(getCoordList(blobObj.convexPoints[i]), getCoordList(blobObj.convexPoints[i+1]), getCoordList(blobObj.convexPoints[i+2]), getCoordList(blobObj.convexPoints[i+3]));
         for (let j = 0; j <= 1; j += 0.01){
             curPoint = getPointOnSeg(curSeg, j).toArray();
-            console.log(curPoint);
+            //console.log(curPoint);
             context.lineTo(curPoint[0], curPoint[1]);
         }
     }
-    penSeg = calcSegment(blobObj.points[blobObj.points.length-3], blobObj.points[blobObj.points.length-2], blobObj.points[blobObj.points.length-1], blobObj.points[0]);
+    penSeg = calcSegment(getCoordList(blobObj.convexPoints[blobObj.convexPoints.length-3]), getCoordList(blobObj.convexPoints[blobObj.convexPoints.length-2]), getCoordList(blobObj.convexPoints[blobObj.convexPoints.length-1]), getCoordList(blobObj.convexPoints[0]));
     for (let j = 0; j <= 1; j += 0.01){
         curPoint = getPointOnSeg(penSeg, j).toArray();
-        console.log(curPoint);
+        //console.log(curPoint);
         context.lineTo(curPoint[0], curPoint[1]);
     }
-    lastSeg = calcSegment(blobObj.points[blobObj.points.length-2], blobObj.points[blobObj.points.length-1], blobObj.points[0], blobObj.points[1]);
+    lastSeg = calcSegment(getCoordList(blobObj.convexPoints[blobObj.convexPoints.length-2]), getCoordList(blobObj.convexPoints[blobObj.convexPoints.length-1]), getCoordList(blobObj.convexPoints[0]), getCoordList(blobObj.convexPoints[1]));
     for (let j = 0; j <= 1; j += 0.01){
         curPoint = getPointOnSeg(lastSeg, j).toArray();
-        console.log(curPoint);
+        //console.log(curPoint);
         context.lineTo(curPoint[0], curPoint[1]);
     }
 
     context.stroke();
-    //context.fill();
-    console.log("filling")
+    context.fill();
+    console.log("filled")
 }
 
 function cross(a, b, o) {
-    return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+    // from https://en.wikibooks.org/wiki/Algorithm_Implementation/Geometry/Convex_hull/Monotone_chai
+    //  modified [0] => x , [1] => y
+    return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
  }
  
 
 function convexHull(points) {
+    // from https://en.wikibooks.org/wiki/Algorithm_Implementation/Geometry/Convex_hull/Monotone_chain
     points.sort(function(a, b) {
-       return a[0] == b[0] ? a[1] - b[1] : a[0] - b[0];
+        // modified [0] => x , [1] => y
+       return a.x == b.x ? a.y - b.y : a.x - b.x;
     });
+    console.log(points);
  
     var lower = [];
     for (var i = 0; i < points.length; i++) {
@@ -1089,11 +1169,14 @@ function convexHull(points) {
  
     upper.pop();
     lower.pop();
+    console.log("upper/lower")
+    console.log(upper)
+    console.log(lower)
     return lower.concat(upper);
 }
 
 function sortByConvexHull(blob){
-    blob.points = convexHull(blob.points);
+    blob.convexPoints = convexHull(blob.pointsInBlob);
 }
 
 function distance(p0, p1){
