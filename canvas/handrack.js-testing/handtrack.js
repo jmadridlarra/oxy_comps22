@@ -3,6 +3,7 @@ const canvas = document.getElementById("canvas");
 const context = canvas.getContext("2d");
 let trackButton = document.getElementById("trackbutton");
 let updateNote = document.getElementById("updatenote");
+let debugStatus = document.getElementById("status");
 canvas.style.background = "black";
 canvas.width = 1500;
 canvas.height = 750;
@@ -119,6 +120,26 @@ const indivPoint = {
     xVelocity: defaultSpeed * 0.8,
     near: [],
 }
+var dTriangulation;
+//var dTriangulation = Delaunator.from(points);
+
+//========================================
+// LEVEL FOUR global vars
+let rectangleList = [];
+let active = [];
+const rect = {
+    x: canvas.width / 2,
+    y: canvas.height / 2,
+    scale: 0, // how far the rectangle has grown (0-100 where 100 fills the whole screen)
+    rotateBy: 0, // number of degrees to rotate by
+    active: false, // if a user is able to rotate it
+    r: 255,
+    g: 255,
+    b: 255,
+    a: 1,
+    index: 0,
+    filled: false, // has the rect filled the canvas?
+}
 
 // starts video
 function startVideo() {
@@ -214,6 +235,7 @@ function getMouseCoord(predictions, canvas, context, mediasource){
 function updateFrame(canvas, predictions, video){
     // clears canvas each frame and switches between levels also creates small circles
     context.clearRect(0, 0, canvas.width, canvas.height);
+    context.beginPath();
     if (levelOne){
         canvas.style.background = "black";
         getNewCircleCoords(canvas, predictions, video);
@@ -228,9 +250,11 @@ function updateFrame(canvas, predictions, video){
 
     } else if (levelThree){
         moveBlobs();
-    } else {
-        growRects();
-
+    } else {  
+        checkHands();     
+        //growRects();
+        //console.log("drawing rects");
+        drawRects();
     }
     // creates the shadow avatar visual representation of the user's hands on the screen as hollow circles
     makeSmallCircles(predictions, video, canvas);
@@ -479,6 +503,8 @@ function testFunc(){
 
 function reset(){
     localPred.clear();
+    context.clearRect(0, 0, context.canvas.width, context.canvas.height);
+    context.beginPath();
     if (levelOne){
         initCircles();
         countCirclesNearHand = 0;
@@ -493,6 +519,8 @@ function reset(){
     } else if (levelThree){
         initBlobs();
     } else {
+        active = [];
+        rectangleList = [];
         initRects();
     }
 }
@@ -977,17 +1005,19 @@ function moveLines(){
 function initBlobs(){
     console.log("init")
     pointsList = [];
-    for (let i = 0; i < 8; i++){
+    for (let i = 0; i < 30; i++){
         pointsList[i] = Object.create(indivPoint);
         pointsList[i].ID = Math.floor(Math.random() * 1000);
         //console.log(pointsList[i].ID);
         pointsList[i].x = Math.floor(canvas.width * Math.random());
         //console.log(pointsList[i].x);
         pointsList[i].y = Math.floor(canvas.height * Math.random());
-        pointsList[i].yVelocity = defaultSpeed * 0.01 * getRandomSign();
-        pointsList[i].xVelocity = defaultSpeed * 0.01 * getRandomSign();
+        pointsList[i].yVelocity = defaultSpeed * 0.001 * getRandomSign();
+        pointsList[i].xVelocity = defaultSpeed * 0.001 * getRandomSign();
         pointsList[i].near = [];
     }
+    dTriangulation = Delaunator.from(pointsList);
+    console.log(dTriangulation.halfedges[0]);
     //console.log(pointsList);
     for (let i = 0; i < totalBlobs; i++){
         blobList[i] = Object.create(miniBlob);
@@ -1002,6 +1032,7 @@ function moveBlobs(){
         console.log("convex")
         //console.log(blobList[i].points);
         getNewPointCoords(blobList[i]);
+        triangulatePoints(blobList[i]);
         //console.log(blobList[i].points);
         sortByConvexHull(blobList[i]);
         console.log(blobList[i].pointsList);
@@ -1064,6 +1095,11 @@ function getNewPointCoords(blob){
         blob.pointsInBlob[i].x = blob.pointsInBlob[i].x + blob.pointsInBlob[i].xVelocity;
         blob.pointsInBlob[i].y = blob.pointsInBlob[i].y + blob.pointsInBlob[i].yVelocity;
     }
+    dTriangulation.update();
+}
+
+function triangulatePoints(){
+
 }
 
 function getCoordList(point){
@@ -1093,6 +1129,7 @@ function setBlobColor(blob){
     blob.b = 200;
     blob.a = 1;
 }
+
 function drawBlob(blobObj) {
     context.fillStyle = `rgba(
         ${blobObj.r},
@@ -1102,34 +1139,55 @@ function drawBlob(blobObj) {
     console.log("beginning path")
     context.beginPath();
     context.moveTo(blobObj.convexPoints[0].x, blobObj.convexPoints[0].y);
+    for (let i = 0; i < blobObj.convexPoints.length - 2; i += 3){
+        context.bezierCurveTo(blobObj.convexPoints[i].x, blobObj.convexPoints[i].y, blobObj.convexPoints[i + 1].x, blobObj.convexPoints[i + 1].y, blobObj.convexPoints[i + 2].x, blobObj.convexPoints[i + 2].y);
+    }
+    mod = (blobObj.convexPoints.length % 3) - 1
+    if (mod == 0){
+        // add bezier operator point? Then would be quadratic
+    }
+    else if (mod == 1){
+        // parametric bezier
+        context.quadraticCurveTo(blobObj.convexPoints[blobObj.convexPoints.length - 1].x, blobObj.convexPoints[blobObj.convexPoints.length - 1].y,
+            blobObj.convexPoints[0].x, blobObj.convexPoints[0].y)
+    }else if (mod == 2){
+        context.bezierCurveTo(blobObj.convexPoints[blobObj.convexPoints.length - 3].x, blobObj.convexPoints[blobObj.convexPoints.length - 3].y, 
+            blobObj.convexPoints[blobObj.convexPoints.length - 2].x, blobObj.convexPoints[blobObj.convexPoints.length - 2].y, 
+            blobObj.convexPoints[blobObj.convexPoints.length - 1].x, blobObj.convexPoints[blobObj.convexPoints.length - 1].y,
+            blobObj.convexPoints[0].x, blobObj.convexPoints[0].y)
+    }
+    
     //console.log(blobObj.convexPoints);
-    firstSeg = calcSegment(getCoordList(blobObj.convexPoints[blobObj.convexPoints.length-1]), getCoordList(blobObj.convexPoints[0]), getCoordList(blobObj.convexPoints[1]), getCoordList(blobObj.convexPoints[2]));
-    for (let j = 0; j <= 1; j += 0.01){
-        curPoint = getPointOnSeg(firstSeg, j).toArray();
-        //console.log(curPoint);
-        context.lineTo(curPoint[0], curPoint[1]);
-    }
+    //=========================================
+    // for Catmull-Rom Splines
+    //=========================================
+    // firstSeg = calcSegment(getCoordList(blobObj.convexPoints[blobObj.convexPoints.length-1]), getCoordList(blobObj.convexPoints[0]), getCoordList(blobObj.convexPoints[1]), getCoordList(blobObj.convexPoints[2]));
+    // for (let j = 0; j <= 1; j += 0.01){
+    //     curPoint = getPointOnSeg(firstSeg, j).toArray();
+    //     //console.log(curPoint);
+    //     context.lineTo(curPoint[0], curPoint[1]);
+    // }
 
-    for (let i = 0; i < blobObj.convexPoints.length - 4; i++){
-        curSeg = calcSegment(getCoordList(blobObj.convexPoints[i]), getCoordList(blobObj.convexPoints[i+1]), getCoordList(blobObj.convexPoints[i+2]), getCoordList(blobObj.convexPoints[i+3]));
-        for (let j = 0; j <= 1; j += 0.01){
-            curPoint = getPointOnSeg(curSeg, j).toArray();
-            //console.log(curPoint);
-            context.lineTo(curPoint[0], curPoint[1]);
-        }
-    }
-    penSeg = calcSegment(getCoordList(blobObj.convexPoints[blobObj.convexPoints.length-3]), getCoordList(blobObj.convexPoints[blobObj.convexPoints.length-2]), getCoordList(blobObj.convexPoints[blobObj.convexPoints.length-1]), getCoordList(blobObj.convexPoints[0]));
-    for (let j = 0; j <= 1; j += 0.01){
-        curPoint = getPointOnSeg(penSeg, j).toArray();
-        //console.log(curPoint);
-        context.lineTo(curPoint[0], curPoint[1]);
-    }
-    lastSeg = calcSegment(getCoordList(blobObj.convexPoints[blobObj.convexPoints.length-2]), getCoordList(blobObj.convexPoints[blobObj.convexPoints.length-1]), getCoordList(blobObj.convexPoints[0]), getCoordList(blobObj.convexPoints[1]));
-    for (let j = 0; j <= 1; j += 0.01){
-        curPoint = getPointOnSeg(lastSeg, j).toArray();
-        //console.log(curPoint);
-        context.lineTo(curPoint[0], curPoint[1]);
-    }
+    // for (let i = 0; i < blobObj.convexPoints.length - 4; i++){
+    //     curSeg = calcSegment(getCoordList(blobObj.convexPoints[i]), getCoordList(blobObj.convexPoints[i+1]), getCoordList(blobObj.convexPoints[i+2]), getCoordList(blobObj.convexPoints[i+3]));
+    //     for (let j = 0; j <= 1; j += 0.01){
+    //         curPoint = getPointOnSeg(curSeg, j).toArray();
+    //         //console.log(curPoint);
+    //         context.lineTo(curPoint[0], curPoint[1]);
+    //     }
+    // }
+    // penSeg = calcSegment(getCoordList(blobObj.convexPoints[blobObj.convexPoints.length-3]), getCoordList(blobObj.convexPoints[blobObj.convexPoints.length-2]), getCoordList(blobObj.convexPoints[blobObj.convexPoints.length-1]), getCoordList(blobObj.convexPoints[0]));
+    // for (let j = 0; j <= 1; j += 0.01){
+    //     curPoint = getPointOnSeg(penSeg, j).toArray();
+    //     //console.log(curPoint);
+    //     context.lineTo(curPoint[0], curPoint[1]);
+    // }
+    // lastSeg = calcSegment(getCoordList(blobObj.convexPoints[blobObj.convexPoints.length-2]), getCoordList(blobObj.convexPoints[blobObj.convexPoints.length-1]), getCoordList(blobObj.convexPoints[0]), getCoordList(blobObj.convexPoints[1]));
+    // for (let j = 0; j <= 1; j += 0.01){
+    //     curPoint = getPointOnSeg(lastSeg, j).toArray();
+    //     //console.log(curPoint);
+    //     context.lineTo(curPoint[0], curPoint[1]);
+    // }
 
     context.stroke();
     context.fill();
@@ -1220,12 +1278,180 @@ function getPointOnSeg(segment, t){
 // ================================================
 // LEVEL FOUR
 function initRects(){
+    for (let i = 0; i < 10; i++){
+        rectangleList[i] = Object.create(rect);
+        rectangleList[i].x = canvas.width / 2;
+        rectangleList[i].y = canvas.height / 2;
+        rectangleList[i].rotateBy = Math.floor(Math.random() * 360);
+        rectangleList[i].index = i;
+        rectangleList[i].r = Math.floor(Math.random() * 255);
+        rectangleList[i].g = Math.floor(Math.random() * 255);
+        rectangleList[i].b = Math.floor(Math.random() * 255);
+        rectangleList[i].scale = 0;
+        rectangleList[i].active = false;
+    }
+    //rectangleList[0].scale = Math.floor(Math.random() * 100)
+    rectangleList[0].active = true;
+    active.push(rectangleList[0]);
+    debugStatus.innerText = asString(active).toString();
+    //active.push(rectangleList[1])
+}
 
+function checkHands(){
+    console.log(localPred.size);
+    if (localPred.size > 0){
+        console.log("finding hands");
+    } else {
+        growRects();
+    }
 }
 function growRects(){
-
+// grows the active rectangles
+    for (let i = 0; i < active.length; i++){
+        active[i].scale = active[i].scale + (5 / getFPS()); // increasing at a rate of 100px per second 
+        checkFilled(active[i]);
+        if (i < active.length - 2 && active[i].filled){
+            if (i != 0){
+                for (let j = 0; j < i; j++){
+                    active[j].scale = 0;
+                    active[j].active = false;
+                    active[j].filled = false;
+                }
+                active.splice(0, i);
+            } 
+        } 
+        if (i == active.length - 1 && readyForNext(active[i])){
+            if (active[i].index < rectangleList.length - 1){
+                nextIndex = active[i].index + 1;
+            } else {
+                nextIndex = 0;
+            }
+            rectangleList[nextIndex].active = true;
+            active.push(rectangleList[nextIndex]);
+        }
+    }
+    debugStatus.innerText = asString(active).toString();
 }
-// Load the model.
+
+function checkFilled(rect){
+    if(rect.scale >= 110){
+        rect.filled = true;
+    }
+    return true;
+}
+
+function asString(rectList){
+    printList = [];
+    for (let i = 0; i < rectList.length; i++){
+        printList.push("\nID: " + rectList[i].index.toString());
+        printList.push(" Scale: " + Math.floor(rectList[i].scale).toString());
+        printList.push(" Filled: " + rectList[i].filled.toString());
+        printList.push(" NextAt: " + calcMaxHeight(rectList[i]).toString());
+    }
+    return printList;
+}
+
+function readyForNext(rect){
+    console.log(rect);
+    if (rect.scale >= calcMaxHeight(rect)){
+        return true;
+    } else {
+        return false;
+    }
+}
+function calcMaxHeight(rect){
+    // used to calculate at what scale the rectangle will be big enough to touch the top (and bottom) of the canvas
+
+    // width = active[i].scale * calcMinWidth(active[i]) / 100;
+    // height = width * 1.5;
+
+    rectHeight = 0;
+
+    rotation = rect.rotateBy;
+    if (rect.rotateBy >= 180){
+        rotation = rect.rotateBy - 180;
+    }
+
+    if ((rect.rotateBy >= 0 && rect.rotateBy < 45) || (rect.rotateBy >= 180 && rect.rotateBy < 225)){
+        // 0 -> 45 degrees
+        // canvas.width -> hypoteneuse = sqrt(width ^2 + height ^2)
+        line = getLine(0, canvas.height, 45, Math.sqrt(Math.pow(canvas.width, 2) + Math.pow(canvas.height, 2)));       
+    } else if ((rect.rotateBy >= 45 && rect.rotateBy < 90) || (rect.rotateBy >= 225 && rect.rotateBy < 270)){
+        // 45 -> 90 degrees
+        line = getLine(45, Math.sqrt(Math.pow(canvas.width, 2) + Math.pow(canvas.height, 2)), 90, canvas.width);
+    } else if ((rect.rotateBy >= 90 && rect.rotateBy < 135) || (rect.rotateBy >= 270 && rect.rotateBy < 315)){
+        // 90 -> 135
+        //
+        line = getLine(90, canvas.width, 135, Math.sqrt(Math.pow(canvas.width, 2) + Math.pow(canvas.height, 2)));
+    } else if ((rect.rotateBy >= 135 && rect.rotateBy < 180) || (rect.rotateBy >= 315 && rect.rotateBy < 360)){
+        // 135 -> 180
+        //
+        line = getLine(135, Math.sqrt(Math.pow(canvas.width, 2) + Math.pow(canvas.height, 2)), 180, canvas.height);
+    } else {
+        rectHeight = canvas.height;
+    }
+    // height
+    rectHeight = line[0] * rotation + line[1];
+    // scale
+    return 66.66 * rectHeight / calcMinWidth(rect) / 2;
+}
+function drawRects(){
+    for (let i = 0; i < active.length; i++){
+        // the context to return to later
+        context.save()
+        // move point of rotation
+        context.translate(canvas.width / 2, canvas.height / 2);
+        //console.log(active[i].rotateBy);
+        //console.log(active[i]);
+        // rotate
+        context.rotate(active[i].rotateBy * Math.PI / 180);  
+        // move canvas back to original position to draw
+        context.translate(-1 * canvas.width / 2, -1 * canvas.height / 2);
+          
+        // draw the second rectangle
+        context.fillStyle = `rgba(
+            ${active[i].r},
+            ${active[i].g},
+            ${active[i].b}, 
+            ${active[i].a})`;
+        //console.log(calcMinWidth(active[i]));
+        width = active[i].scale * calcMinWidth(active[i]) / 100;
+        height = width * 1.5;
+        //console.log("drawing rect");
+        context.fillRect(active[i].x - (width / 2), active[i].y - (height / 2), width, height);
+        
+        //console.log("returning rotation")
+        // restore context
+        context.restore()  
+    }
+}
+
+function calcMinWidth(rect){
+    rotation = rect.rotateBy;
+    if (rect.rotateBy >= 180){
+        rotation = rect.rotateBy - 180;
+    }
+    if ((rect.rotateBy >= 0 && rect.rotateBy < 45) || (rect.rotateBy >= 180 && rect.rotateBy < 225)){
+        // 0 -> 45 degrees
+        // canvas.width -> hypoteneuse = sqrt(width ^2 + height ^2)
+        line = getLine(0, canvas.width, 45, Math.sqrt(Math.pow(canvas.width, 2) + Math.pow(canvas.height, 2)));       
+    } else if ((rect.rotateBy >= 45 && rect.rotateBy < 90) || (rect.rotateBy >= 225 && rect.rotateBy < 270)){
+        // 45 -> 90 degrees
+        line = getLine(45, Math.sqrt(Math.pow(canvas.width, 2) + Math.pow(canvas.height, 2)), 90, canvas.height);
+    } else if ((rect.rotateBy >= 90 && rect.rotateBy < 135) || (rect.rotateBy >= 270 && rect.rotateBy < 315)){
+        // 90 -> 135
+        //
+        line = getLine(90, canvas.height, 135, Math.sqrt(Math.pow(canvas.width, 2) + Math.pow(canvas.height, 2)));
+    } else if ((rect.rotateBy >= 135 && rect.rotateBy < 180) || (rect.rotateBy >= 315 && rect.rotateBy < 360)){
+        // 135 -> 180
+        //
+        line = getLine(135, Math.sqrt(Math.pow(canvas.width, 2) + Math.pow(canvas.height, 2)), 180, canvas.width);
+    } else {
+        return canvas.width;
+    }
+    return line[0] * rotation + line[1];
+}
+// Load the model
 handTrack.load(modelParams).then(lmodel => {
     // detect objects in the image.
     model = lmodel
