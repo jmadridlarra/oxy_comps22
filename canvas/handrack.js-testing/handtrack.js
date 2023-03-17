@@ -1298,11 +1298,94 @@ function initRects(){
 }
 
 function checkHands(){
-    console.log(localPred.size);
     if (localPred.size > 0){
-        console.log("finding hands");
+        checkIfRotate();
     } else {
         growRects();
+    }
+}
+
+function checkIfRotate(){
+    for (let [key, value] of localPred) {
+        collision = checkCollision(value);
+        console.log(collision);
+        return collision;
+        // if (value.x > canvas.width / 2){
+        //     if (value.y > canvas.height / 2){
+        //         // Q4
+        //         if
+        //     } else {
+        //         // Q1
+        //     }
+        // } else {
+        //     if (value.y > canvas.height / 2){
+        //         // Q3
+        //     } else {
+        //         // Q2
+        //     }
+        // }
+        
+    }
+}
+
+function getPointCoords(rect){
+    width = rect.scale * calcMinWidth(rect) / 100;
+    height = width * 1.5;
+    A = [(canvas.width / 2) - (width / 2), (canvas.height / 2) - (height / 2)];
+    B = [(canvas.width / 2) + (width / 2), (canvas.height / 2) - (height / 2)];
+    C = [(canvas.width / 2) + (width / 2), (canvas.height / 2) + (height / 2)];
+    D = [(canvas.width / 2) - (width / 2), (canvas.height / 2) + (height / 2) ];
+
+    if (rect.rotateBy < 90){
+        return [rotatePoints(A, rect.rotateBy), rotatePoints(B, rect.rotateBy), rotatePoints(C, rect.rotateBy), rotatePoints(D, rect.rotateBy),];
+    } else if (rect.rotateBy < 180){
+        return [rotatePoints(B, rect.rotateBy), rotatePoints(C, rect.rotateBy), rotatePoints(D, rect.rotateBy), rotatePoints(A, rect.rotateBy),];
+    } else if (rect.rotateBy < 270){
+        return [rotatePoints(C, rect.rotateBy), rotatePoints(D, rect.rotateBy), rotatePoints(A, rect.rotateBy), rotatePoints(B, rect.rotateBy),];
+    } else {
+        return [rotatePoints(D, rect.rotateBy), rotatePoints(A, rect.rotateBy), rotatePoints(B, rect.rotateBy), rotatePoints(C, rect.rotateBy),];
+    }
+}
+
+function rotatePoints(point, rotation){
+    // translate to rotate about a point that is not the origin
+    translated_point = [point[0] - (canvas.width / 2), point[1] - (canvas.height / 2)]
+    x = (translated_point[0] * Math.cos(rotation)) - (translated_point[1] * Math.sin(rotation));
+    y = (translated_point[1] * Math.cos(rotation)) + (translated_point[0] * Math.sin(rotation));
+    return [x + (canvas.width / 2), y + (canvas.height / 2)];
+}
+
+function checkCollision(hand){
+    let rect = active[active.length - 1];
+    points = getPointCoords(rect);
+    let S = [hand.x, hand.y];
+    rateOfRotation = 3;
+    if (intersectCircle(S, [points[0], points[1]])){
+        rect.rotateBy = rect.rotateBy - rateOfRotation;
+        return true;
+    } else if (intersectCircle(S, [points[1], points[2]])){
+        rect.rotateBy = rect.rotateBy + rateOfRotation;
+        return true;
+    } else if (intersectCircle(S, [points[2], points[3]])){
+        rect.rotateBy = rect.rotateBy - rateOfRotation;
+        return true;
+    } else if (intersectCircle(S, [points[3], points[0]])){
+        rect.rotateBy = rect.rotateBy + rateOfRotation;
+        return true;
+    } else {
+        return false;
+    }
+}
+
+function intersectCircle(point, line){
+    line = getLine(line[0][0], line[0][1], line[1][0], line[1][1]);
+    console.log((line[0] * point[0] + line[1]) - ((line[0] * point[0] + line[1]) % 5));
+    console.log(point[1] - (point[1] % 5));
+    // we % 10 to allow for a 10px error
+    if ((line[0] * point[0] + line[1]) - ((line[0] * point[0] + line[1]) % 5) == point[1] - (point[1] % 5)){
+        return true;
+    } else {
+        return false;
     }
 }
 function growRects(){
@@ -1314,7 +1397,7 @@ function growRects(){
             if (i != 0){
                 for (let j = 0; j < i; j++){
                     active[j].scale = 0;
-                    active[j].active = false;
+                    
                     active[j].filled = false;
                 }
                 active.splice(0, i);
@@ -1327,6 +1410,7 @@ function growRects(){
                 nextIndex = 0;
             }
             rectangleList[nextIndex].active = true;
+            active[i].active = false;
             active.push(rectangleList[nextIndex]);
         }
     }
@@ -1352,7 +1436,6 @@ function asString(rectList){
 }
 
 function readyForNext(rect){
-    console.log(rect);
     if (rect.scale >= calcMaxHeight(rect)){
         return true;
     } else {
@@ -1395,6 +1478,7 @@ function calcMaxHeight(rect){
     // scale
     return 66.66 * rectHeight / calcMinWidth(rect) / 2;
 }
+
 function drawRects(){
     for (let i = 0; i < active.length; i++){
         // the context to return to later
