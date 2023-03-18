@@ -132,13 +132,14 @@ const rect = {
     y: canvas.height / 2,
     scale: 0, // how far the rectangle has grown (0-100 where 100 fills the whole screen)
     rotateBy: 0, // number of degrees to rotate by
-    active: false, // if a user is able to rotate it
+    active: false, // if a rectangle is visible on screen 
     r: 255,
     g: 255,
     b: 255,
     a: 1,
     index: 0,
     filled: false, // has the rect filled the canvas?
+    finished: false, // has the rect been rotated to its final position
 }
 
 // starts video
@@ -312,7 +313,7 @@ function updateLocalPred(predictions, mediasource, canvas){
                     }
                 }
                 // replace the object with updated info if it is likely related
-                if (prevPercent > 75){
+                if (prevPercent > 70){
                     newHand.ID = mostLikely;
                     localPred.set(mostLikely, newHand);
                 }
@@ -333,8 +334,8 @@ function probabilityOfMatch(old, cur){
         return 100;
     }
     probability = 100;
-    probability = probability - Math.abs(old.x - cur.x);
-    probability = probability - Math.abs(old.y - cur.y);
+    probability = probability - (0.9 * Math.abs(old.x - cur.x));
+    probability = probability - (0.9 * Math.abs(old.y - cur.y));
     probability = probability - Math.abs(old.width - cur.width);
     probability = probability - Math.abs(old.height - cur.height);
     probability = probability - old.sinceConfirmed;
@@ -349,9 +350,11 @@ function makeSmallCircles(){
         } else {
             context.strokeStyle = `rgba(255, 255, 255, 1)`;
         }
+        context.fillStyle = `rgba(0, 0, 0, 1)`;
         context.beginPath();
         context.arc(value.x, value.y, 5, 0, 2 * Math.PI);
         context.stroke();
+        context.fill();
     }
 }
 
@@ -1298,7 +1301,7 @@ function initRects(){
 }
 
 function checkHands(){
-    if (localPred.size > 0){
+    if (localPred.size > 0 && !active[active.length - 1].finished){
         checkIfRotate();
     } else {
         growRects();
@@ -1308,7 +1311,7 @@ function checkHands(){
 function checkIfRotate(){
     for (let [key, value] of localPred) {
         collision = checkCollision(value);
-        console.log(collision);
+        //console.log(collision);
         return collision;
         // if (value.x > canvas.width / 2){
         //     if (value.y > canvas.height / 2){
@@ -1329,6 +1332,7 @@ function checkIfRotate(){
 }
 
 function getPointCoords(rect){
+    // calculating current point location after rotation
     width = rect.scale * calcMinWidth(rect) / 100;
     height = width * 1.5;
     A = [(canvas.width / 2) - (width / 2), (canvas.height / 2) - (height / 2)];
@@ -1348,6 +1352,7 @@ function getPointCoords(rect){
 }
 
 function rotatePoints(point, rotation){
+    // converting the original rect points to calculate current points after rotation
     // translate to rotate about a point that is not the origin
     translated_point = [point[0] - (canvas.width / 2), point[1] - (canvas.height / 2)]
     x = (translated_point[0] * Math.cos(rotation)) - (translated_point[1] * Math.sin(rotation));
@@ -1356,48 +1361,132 @@ function rotatePoints(point, rotation){
 }
 
 function checkCollision(hand){
+    // check each side of rect and assess collision
     let rect = active[active.length - 1];
     points = getPointCoords(rect);
     let S = [hand.x, hand.y];
-    rateOfRotation = 3;
+    rateOfRotation = 2;
+    if (rect.rotateBy % 180 < 95 && rect.rotateBy % 180 > 85){
+        rect.finished = true;
+        rect.rotateBy = rect.rotateBy - (rect.rotateBy % 90)
+    }
+    
     if (intersectCircle(S, [points[0], points[1]])){
-        rect.rotateBy = rect.rotateBy - rateOfRotation;
+        left = calcSideOfIntersection(S, [points[0], points[1]], true);
+        if (left){
+            rect.rotateBy = rect.rotateBy - rateOfRotation;
+            console.log("AB counterclockwise")
+        } else {
+            rect.rotateBy = rect.rotateBy + rateOfRotation;
+            console.log("AB clockwise")
+        }
         return true;
     } else if (intersectCircle(S, [points[1], points[2]])){
-        rect.rotateBy = rect.rotateBy + rateOfRotation;
+        top = calcSideOfIntersection(S, [points[1], points[2]], false);
+        if (top){
+            rect.rotateBy = rect.rotateBy - rateOfRotation;
+            console.log("BC counterclockwise")
+        } else {
+            rect.rotateBy = rect.rotateBy + rateOfRotation;
+            console.log("BC clockwise")
+        }
         return true;
     } else if (intersectCircle(S, [points[2], points[3]])){
-        rect.rotateBy = rect.rotateBy - rateOfRotation;
+        left = calcSideOfIntersection(S, [points[2], points[3]], true);
+        if (left){
+            rect.rotateBy = rect.rotateBy + rateOfRotation;
+            console.log("CD clockwise")
+        } else {
+            rect.rotateBy = rect.rotateBy - rateOfRotation;
+            console.log("CD counterclockwise")
+        }        
         return true;
     } else if (intersectCircle(S, [points[3], points[0]])){
-        rect.rotateBy = rect.rotateBy + rateOfRotation;
+        top = calcSideOfIntersection(S, [points[3], points[0]], false);
+        if (top){
+            rect.rotateBy = rect.rotateBy + rateOfRotation;
+            console.log("DA clockwise")
+        } else {
+            rect.rotateBy = rect.rotateBy - rateOfRotation;
+            console.log("DA counterclockwise")
+        }        
         return true;
     } else {
         return false;
     }
 }
 
+function calcSideOfIntersection(point, line, width){
+    // return true if on the left side or top and false if on the right side or bottom
+    if (width){
+        let right;
+        let left;
+        if (line[0][0] > line[1][0]){
+            right = line[0][0];
+            left = line[1][0];
+        } else if (line[0][0] < line[1][0]){
+            left = line[0][0];
+            right = line[1][0];
+        }else {
+            return false;
+        }
+        mid = right - left;
+        if (point[0] < mid){
+            return true;
+        }else if (point[0] > mid){
+            return false;
+        } else {
+            return false;
+        }
+    } else {
+        let bottom;
+        let top;
+        if (line[0][1] > line[1][1]){
+            // opposite because the lower on the canvas is higher y value
+            bottom = line[0][1];
+            top = line[1][1];
+        } else if (line[0][1] < line[1][1]){
+            top = line[0][1];
+            bottom = line[1][1];
+        }else {
+            return false;
+        }
+        mid = bottom - top;
+        if (point[1] < mid){
+            return true;
+        }else if (point[1] > mid){
+            return false;
+        } else {
+            return false;
+        }
+    }
+    
+}
+
 function intersectCircle(point, line){
+    // Check if circle is intersecting this line
     line = getLine(line[0][0], line[0][1], line[1][0], line[1][1]);
-    console.log((line[0] * point[0] + line[1]) - ((line[0] * point[0] + line[1]) % 5));
-    console.log(point[1] - (point[1] % 5));
+    //console.log((line[0] * point[0] + line[1]) - ((line[0] * point[0] + line[1]) % 5));
+    //console.log(point[1] - (point[1] % 5));
     // we % 10 to allow for a 10px error
-    if ((line[0] * point[0] + line[1]) - ((line[0] * point[0] + line[1]) % 5) == point[1] - (point[1] % 5)){
+    //if ((line[0] * point[0] + line[1]) - ((line[0] * point[0] + line[1]) % 5) == point[1] - (point[1] % 5)){
+    if ((line[0] * point[0] + line[1]) - 3 < point[1] && (line[0] * point[0] + line[1]) + 3 > point[1]){
         return true;
     } else {
         return false;
     }
 }
+
 function growRects(){
 // grows the active rectangles
     for (let i = 0; i < active.length; i++){
-        active[i].scale = active[i].scale + (5 / getFPS()); // increasing at a rate of 100px per second 
+        active[i].scale = active[i].scale + (2 / getFPS()); // increasing at a rate of 20px per second 
         checkFilled(active[i]);
         if (i < active.length - 2 && active[i].filled){
             if (i != 0){
                 for (let j = 0; j < i; j++){
                     active[j].scale = 0;
-                    
+                    active[j].active = false;
                     active[j].filled = false;
                 }
                 active.splice(0, i);
@@ -1425,10 +1514,12 @@ function checkFilled(rect){
 }
 
 function asString(rectList){
+    // for live assessment in HTML
     printList = [];
     for (let i = 0; i < rectList.length; i++){
         printList.push("\nID: " + rectList[i].index.toString());
         printList.push(" Scale: " + Math.floor(rectList[i].scale).toString());
+        printList.push(" RotateBy: " + rectList[i].rotateBy.toString());
         printList.push(" Filled: " + rectList[i].filled.toString());
         printList.push(" NextAt: " + calcMaxHeight(rectList[i]).toString());
     }
@@ -1478,7 +1569,10 @@ function calcMaxHeight(rect){
     // scale
     return 66.66 * rectHeight / calcMinWidth(rect) / 2;
 }
-
+function convertToGray(r, g, b){
+    // from https://stackoverflow.com/questions/16858811/how-to-convert-hex-color-to-hex-black-and-white
+    return (0.58 * r) + (0.17 * g) + (0.8 * b);
+}
 function drawRects(){
     for (let i = 0; i < active.length; i++){
         // the context to return to later
@@ -1491,19 +1585,34 @@ function drawRects(){
         context.rotate(active[i].rotateBy * Math.PI / 180);  
         // move canvas back to original position to draw
         context.translate(-1 * canvas.width / 2, -1 * canvas.height / 2);
-          
+        
+       if (active[i].finished){
+            // you succeeded so it's green
+            context.fillStyle = `rgba(0, 255, 0
+                ${active[i].a})`
+        } else if (active[i].active){
+            context.fillStyle = `rgba(
+                ${active[i].r},
+                ${active[i].g},
+                ${active[i].b}, 
+                ${active[i].a})`;
+        }else {
+            grayValue = convertToGray(active[i].r, active[i].g, active[i].b);
+            context.fillStyle = `rgba(
+                ${grayValue},
+                ${grayValue},
+                ${grayValue}, 
+                ${active[i].a})`;
+        }
         // draw the second rectangle
-        context.fillStyle = `rgba(
-            ${active[i].r},
-            ${active[i].g},
-            ${active[i].b}, 
-            ${active[i].a})`;
+        
+        context.strokeStyle = `rgba(255, 255, 255, 1)`;
         //console.log(calcMinWidth(active[i]));
         width = active[i].scale * calcMinWidth(active[i]) / 100;
         height = width * 1.5;
         //console.log("drawing rect");
         context.fillRect(active[i].x - (width / 2), active[i].y - (height / 2), width, height);
-        
+        context.strokeRect(active[i].x - (width / 2), active[i].y - (height / 2), width, height);
         //console.log("returning rotation")
         // restore context
         context.restore()  
