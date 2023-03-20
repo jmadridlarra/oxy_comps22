@@ -32,6 +32,10 @@ const hand = {
     ID:0,
 }
 
+//====================================
+// tone.js
+let player; // player variable 
+
 // ====================================
 // LEVEL ONE global vars
 let bubbleX = canvas.width / 2;
@@ -166,6 +170,9 @@ function getFPS(){
 function startGame() {
     // mapped to button in HTML
     toggleVideo();
+    Tone.start()
+	console.log('audio is ready')
+    
 }
 
 function toggleVideo() {
@@ -173,12 +180,14 @@ function toggleVideo() {
     if (!isVideo) {
         updateNote.innerText = "Starting video";
         startVideo();
+        playSong();
     } else {
         updateNote.innerText = "Stopping video";
         handTrack.stopVideo(video);
         isVideo = false;
         updateNote.innerText = "Video stopped";
         // model.dispose();
+        player.stop();
     }
 }
 
@@ -267,7 +276,13 @@ function translateCoords(vidCoordsX, vidCoordsY, mediasource, canvas){
     var y = vidCoordsY / mediasource.height * canvas.height;
     return [x, y];
 }
-
+//=========================================
+// TONE & Song helper methods
+function playSong(){
+    player = new Tone.Player("https://cdn.pixabay.com/audio/2022/10/05/audio_1c7fba0237.mp3").toDestination();
+    player.loop = true;
+    player.autostart = true;
+}
 // =======================================
 // HANDTRACKING HELPER METHODS
 function updateLocalPred(predictions, mediasource, canvas){
@@ -668,8 +683,8 @@ function getNewCircleCoords(canvas, predictions, mediasource){
             circleList[j].xVelocity = getRandomSign() * ((Math.random() * defaultSpeed * 2) - defaultSpeed) / getFPS();
             circleList[j].yVelocity = getRandomSign() * ((Math.random() * defaultSpeed * 2) - defaultSpeed) / getFPS();
         }
-        console.log(countCirclesNearHand);
-        console.log(circlesLeft);
+        //console.log(countCirclesNearHand);
+        //console.log(circlesLeft);
         if (circleList[j].nearHand == -1 && !circleList[j].launching){
             if (Math.abs(circleList[j].xVelocity) < (defaultSpeed / getFPS())){
                 circleList[j].xVelocity = circleList[j].xVelocity + Math.sign(circleList[j].xVelocity);
@@ -865,7 +880,6 @@ function checkTouching(edge){
     //color = `rgba(255, 255, 255, 1)`;
     if (edge.color == `rgba(0, 255, 0, 1)`){
         for (let [key, value] of localPred) {
-            // TODO you touch a line and it freezes in position
             if (edge.y2 > edge.y1){
                 // negative slope
                 minx = edge.xcur;
@@ -927,16 +941,16 @@ function moveLines(){
                         placeholder[i].frozen = true;
                         placeholder[i].color = `rgba(255, 0, 0, 1)`;
                         frozenEdges += 1; 
-                        console.log(frozenEdges);
-                        console.log(placeholder.length);
+                        //console.log(frozenEdges);
+                        //console.log(placeholder.length);
                     }
                 } else {
                     if ((placeholder[i].xcur * placeholder[i].m) + placeholder[i].b < placeholder[i].y1){
                         placeholder[i].frozen = true;
                         placeholder[i].color = `rgba(255, 0, 0, 1)`;
                         frozenEdges += 1; 
-                        console.log(frozenEdges);
-                        console.log(placeholder.length);
+                        //console.log(frozenEdges);
+                        //console.log(placeholder.length);
                     }
                 }
             } 
@@ -1032,13 +1046,13 @@ function initBlobs(){
 function moveBlobs(){
     for (let i = 0; i < totalBlobs; i++){
         //TODO: have points move randomly and bounce off the screen
-        console.log("convex")
+        //console.log("convex")
         //console.log(blobList[i].points);
         getNewPointCoords(blobList[i]);
         triangulatePoints(blobList[i]);
         //console.log(blobList[i].points);
         sortByConvexHull(blobList[i]);
-        console.log(blobList[i].pointsList);
+        //console.log(blobList[i].pointsList);
         setBlobColor(blobList[i]);
         drawBlob(blobList[i]);
         drawPoints(blobList[i]);
@@ -1139,7 +1153,7 @@ function drawBlob(blobObj) {
         ${blobObj.g},
         ${blobObj.b}, 
         ${blobObj.a})`;
-    console.log("beginning path")
+    //console.log("beginning path")
     context.beginPath();
     context.moveTo(blobObj.convexPoints[0].x, blobObj.convexPoints[0].y);
     for (let i = 0; i < blobObj.convexPoints.length - 2; i += 3){
@@ -1194,7 +1208,7 @@ function drawBlob(blobObj) {
 
     context.stroke();
     context.fill();
-    console.log("filled")
+    //console.log("filled")
 }
 
 function cross(a, b, o) {
@@ -1210,7 +1224,7 @@ function convexHull(points) {
         // modified [0] => x , [1] => y
        return a.x == b.x ? a.y - b.y : a.x - b.x;
     });
-    console.log(points);
+    //console.log(points);
  
     var lower = [];
     for (var i = 0; i < points.length; i++) {
@@ -1230,9 +1244,9 @@ function convexHull(points) {
  
     upper.pop();
     lower.pop();
-    console.log("upper/lower")
-    console.log(upper)
-    console.log(lower)
+    //console.log("upper/lower")
+    //console.log(upper)
+    //console.log(lower)
     return lower.concat(upper);
 }
 
