@@ -42,7 +42,7 @@ let bubbleX = canvas.width / 2;
 let bubbleY = canvas.height / 2;
 let totalCircles = 40;
 let circlesLeft = totalCircles;
-let defaultSpeed = 100;
+let defaultSpeed = 50;
 let radiusOfAttraction = 275;
 let countCirclesNearHand = 0;
 // using JavaScript built in hash table Map
