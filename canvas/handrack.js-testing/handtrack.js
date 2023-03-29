@@ -34,15 +34,16 @@ const hand = {
 
 //====================================
 // tone.js
-let player; // player variable 
+let sounds; // multiplayer variable 
+//let clinkBuffer = new Tone.Buffer("https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3")
 
 // ====================================
 // LEVEL ONE global vars
 let bubbleX = canvas.width / 2;
 let bubbleY = canvas.height / 2;
-let totalCircles = 40;
+let totalCircles = 25;
 let circlesLeft = totalCircles;
-let defaultSpeed = 50;
+let defaultSpeed = 25;
 let radiusOfAttraction = 275;
 let countCirclesNearHand = 0;
 // using JavaScript built in hash table Map
@@ -180,14 +181,14 @@ function toggleVideo() {
     if (!isVideo) {
         updateNote.innerText = "Starting video";
         startVideo();
-        playSong();
+        initSounds();
     } else {
         updateNote.innerText = "Stopping video";
         handTrack.stopVideo(video);
         isVideo = false;
         updateNote.innerText = "Video stopped";
         // model.dispose();
-        player.stop();
+        sounds.stopAll();
     }
 }
 
@@ -248,6 +249,7 @@ function updateFrame(canvas, predictions, video){
     context.beginPath();
     if (levelOne){
         canvas.style.background = "black";
+        //playClink();
         getNewCircleCoords(canvas, predictions, video);
         if (circleList.length == 0){
             switchLevel();
@@ -278,10 +280,21 @@ function translateCoords(vidCoordsX, vidCoordsY, mediasource, canvas){
 }
 //=========================================
 // TONE & Song helper methods
+//buffer1 = new Tone.Buffer("https://cdn.pixabay.com/audio/2022/10/05/audio_1c7fba0237.mp3");
+buffer2 = new Tone.Buffer("https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3");
+function initSounds(){
+    sounds = new Tone.Players( {
+        "background": "https://cdn.pixabay.com/audio/2022/10/05/audio_1c7fba0237.mp3",
+        "clink": buffer2,
+    }).toDestination();
+    //sounds.player("clink").autostart = true; 
+}
 function playSong(){
-    player = new Tone.Player("https://cdn.pixabay.com/audio/2022/10/05/audio_1c7fba0237.mp3").toDestination();
-    player.loop = true;
-    player.autostart = true;
+    // sounds.player("background").start();
+    
+    sounds.player("background").loop = true;
+    sounds.player("background").autostart = true;
+    console.log("playing background");
 }
 // =======================================
 // HANDTRACKING HELPER METHODS
@@ -520,13 +533,18 @@ function testFunc(){
 }
 
 function reset(){
+    sounds.stopAll();
+    initSounds();
     localPred.clear();
     context.clearRect(0, 0, context.canvas.width, context.canvas.height);
     context.beginPath();
     if (levelOne){
-        initCircles();
         countCirclesNearHand = 0;
         circlesLeft = totalCircles;
+        playSong();
+        initCircles();
+        //getNewCircleCoords(canvas, predictions, video);
+        
     } else if (levelTwo){
         placeholder = [];
         frozenEdges = 0;
@@ -694,19 +712,23 @@ function getNewCircleCoords(canvas, predictions, mediasource){
             }
             if (onTop){
                 circleList[j].yVelocity = circleList[j].yVelocity * -1;
-                circleList[j].yCoords = canvas.height - circleList[j].radius;
+                circleList[j].yCoords = canvas.height - circleList[j].radius - 1;
+                playClink(circleList[j]);
             }
             if (onBottom){
-                circleList[j].yCoords = circleList[j].radius;
+                circleList[j].yCoords = circleList[j].radius + 1;
                 circleList[j].yVelocity = circleList[j].yVelocity * -1;
+                playClink(circleList[j]);
             }
             if (onLeft){
                 circleList[j].xVelocity = circleList[j].xVelocity * -1;
-                circleList[j].xCoords = circleList[j].radius;
+                circleList[j].xCoords = circleList[j].radius + 1;
+                playClink(circleList[j]);
             }
             if (onRight){
                 circleList[j].xVelocity = circleList[j].xVelocity * -1;
-                circleList[j].xCoords = canvas.width - circleList[j].radius;
+                circleList[j].xCoords = canvas.width - circleList[j].radius - 1;
+                playClink(circleList[j]);
             }
         }
         circleList[j].xCoords = circleList[j].xCoords + circleList[j].xVelocity;
@@ -718,6 +740,37 @@ function getNewCircleCoords(canvas, predictions, mediasource){
             circlesLeft -= 1; 
         }
     }
+}
+const vol = new Tone.Volume(-25).toDestination();
+const panner = new Tone.Panner(1).connect(vol);
+const synth = new Tone.Synth().connect(panner);
+
+function playClink(ball){
+    // when a ball touches the edge
+    // side 1-8 starting at top left and ending on left top. 
+    if (ball.xCoords > 0 && ball.xCoords < canvas.width && ball.yCoords > 0 && ball.yCoords < canvas.height){
+        console.log("clink: (" + ball.xCoords + ", " + ball.yCoords + ")");
+    
+        //sounds.player("clink").start();
+        // const pitchShift = new Tone.PitchShift().toDestination();
+        // const clink = sounds.player("clink").connect(pitchShift);
+        let line = getLine(0, canvas.width, -1, 1);
+        // pitchShift.pitch = Math.floor(ball.yCoords * line[0] + line[1]); // down one octave
+        // sounds.player("clink").start();
+        let toPan = (ball.xCoords * line[0]) + line[1];
+        console.log(line);
+        if (toPan > 1){
+            toPan = 1;
+        } else if (toPan < -1){
+            toPan = -1;
+        }
+        
+        panner.pan.rampTo(toPan, 0.05);
+        note = ["B4", "A4", "G4", "F4", "E4", "D4", "C4"];
+        i = ball.yCoords % 7;
+        synth.triggerAttackRelease(note[i], "64n", "+0.01");
+    }
+
 }
 
 function makeCircle(circleObj) {
