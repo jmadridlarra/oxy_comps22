@@ -306,8 +306,9 @@ function initSounds(){
 }
 function playSong(){
     // sounds.player("background").start();
-    const backgroundVol = new Tone.Volume(-20).toDestination();
-    sounds.player("background").connect(backgroundVol);
+    //const backgroundVol = new Tone.Volume(-50).toDestination();
+    sounds.player("background").volume.value = -30;
+    sounds.player("background").toDestination();
     sounds.player("background").loop = true;
     sounds.player("background").autostart = true;
     console.log("playing background");
