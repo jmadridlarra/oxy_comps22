@@ -140,6 +140,7 @@ var dTriangulation;
 // LEVEL FOUR global vars
 let rectangleList = [];
 let active = [];
+let rate = 0;
 const rect = {
     x: canvas.width / 2,
     y: canvas.height / 2,
@@ -150,6 +151,9 @@ const rect = {
     g: 255,
     b: 255,
     a: 1,
+    rLine: [],
+    gLine: [],
+    bLine: [],
     index: 0,
     filled: false, // has the rect filled the canvas?
     finished: false, // has the rect been rotated to its final position
@@ -1478,19 +1482,30 @@ function initRects(){
         rectangleList[i].b = Math.floor(Math.random() * 255);
         rectangleList[i].scale = 0;
         rectangleList[i].active = false;
+        // rectangleList[i].rLine = [];
+        // rectangleList[i].gLine = [];
+        // rectangleList[i].bLine = [];
+
+        grayValue = convertToGray(rectangleList[i].r, rectangleList[i].g, rectangleList[i].b);
+        turn = calcMaxHeight(rectangleList[i]);
+        rectangleList[i].rLine = getLine(turn - 5, rectangleList[i].r, turn + 5, grayValue);
+        rectangleList[i].gLine = getLine(turn - 5, rectangleList[i].g, turn + 5, grayValue);
+        rectangleList[i].bLine = getLine(turn - 5, rectangleList[i].b, turn + 5, grayValue);
     }
     //rectangleList[0].scale = Math.floor(Math.random() * 100)
     rectangleList[0].active = true;
     active.push(rectangleList[0]);
     debugStatus.innerText = asString(active).toString();
     //active.push(rectangleList[1])
+    rate = 2 / getFPS();
 }
 
 function checkHands(){
     if (localPred.size > 0 && !active[active.length - 1].finished){
         checkIfRotate();
+        growRects(true);
     } else {
-        growRects();
+        growRects(false);
     }
 }
 
@@ -1651,22 +1666,31 @@ function calcSideOfIntersection(point, line, width){
 
 function intersectCircle(point, line){
     // Check if circle is intersecting this line
-    line = getLine(line[0][0], line[0][1], line[1][0], line[1][1]);
+    newLine = getLine(line[0][0], line[0][1], line[1][0], line[1][1]);
     //console.log((line[0] * point[0] + line[1]) - ((line[0] * point[0] + line[1]) % 5));
     //console.log(point[1] - (point[1] % 5));
     // we % 10 to allow for a 10px error
     //if ((line[0] * point[0] + line[1]) - ((line[0] * point[0] + line[1]) % 5) == point[1] - (point[1] % 5)){
-    if ((line[0] * point[0] + line[1]) - 3 < point[1] && (line[0] * point[0] + line[1]) + 3 > point[1]){
+    if ((newLine[0] * point[0] + newLine[1]) - 3 < point[1] && (newLine[0] * point[0] + newLine[1]) + 3 > point[1]){
         return true;
     } else {
         return false;
     }
 }
 
-function growRects(){
+function growRects(hands){
 // grows the active rectangles
+    let finalRate = 2 / getFPS();
+    if (hands){
+        finalRate = 1 / (1.75 * getFPS());
+    }
+    if (rate < finalRate){
+        rate += 0.05;
+    }  else if (rate > finalRate){
+        rate -= 0.05;
+    }
     for (let i = 0; i < active.length; i++){
-        active[i].scale = active[i].scale + (2 / getFPS()); // increasing at a rate of 20px per second 
+        active[i].scale = active[i].scale + rate; // increasing at a rate of 20px per second 
         checkFilled(active[i]);
         if (i < active.length - 2 && active[i].filled){
             if (i != 0){
@@ -1771,24 +1795,42 @@ function drawRects(){
         context.rotate(active[i].rotateBy * Math.PI / 180);  
         // move canvas back to original position to draw
         context.translate(-1 * canvas.width / 2, -1 * canvas.height / 2);
-        
-       if (active[i].finished){
+        turn = calcMaxHeight(active[i]);
+        if (active[i].finished){
             // you succeeded so it's green
             context.fillStyle = `rgba(0, 255, 0
                 ${active[i].a})`
-        } else if (active[i].active){
+        } else if (active[i].scale <= turn - 5){
             context.fillStyle = `rgba(
                 ${active[i].r},
                 ${active[i].g},
                 ${active[i].b}, 
                 ${active[i].a})`;
         }else {
-            grayValue = convertToGray(active[i].r, active[i].g, active[i].b);
-            context.fillStyle = `rgba(
-                ${grayValue},
-                ${grayValue},
-                ${grayValue}, 
-                ${active[i].a})`;
+            // console.log(active[i].rLine);
+            // console.log(active[i].rLine === []);
+            // if (active[i].rLine == []){
+            //     grayValue = convertToGray(active[i].r, active[i].g, active[i].b);
+            //     turn = calcMaxHeight(active[i]);
+            //     active[i].rLine = getLine(turn, active[i].r, turn + 10, grayValue);
+            //     active[i].gLine = getLine(turn, active[i].g, turn + 10, grayValue);
+            //     active[i].bLine = getLine(turn, active[i].b, turn + 10, grayValue);
+            // }
+            //console.log(active[i].rLine);
+            if (active[i].scale > turn + 5){
+                grayValue = convertToGray(active[i].r, active[i].g, active[i].b);
+                context.fillStyle = `rgba(
+                    ${grayValue},
+                    ${grayValue},
+                    ${grayValue}, 
+                    ${active[i].a})`;
+            } else {
+                context.fillStyle = `rgba(
+                    ${active[i].rLine[0] * active[i].scale + active[i].rLine[1]},
+                    ${active[i].gLine[0] * active[i].scale + active[i].gLine[1]},
+                    ${active[i].bLine[0] * active[i].scale + active[i].bLine[1]}, 
+                    ${active[i].a})`;
+            }
         }
         // draw the second rectangle
         
