@@ -35,6 +35,7 @@ const hand = {
 //====================================
 // tone.js
 let sounds; // multiplayer variable 
+let prevSoundTime = Tone.context.currentTime;
 //let clinkBuffer = new Tone.Buffer("https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3")
 
 // ====================================
@@ -50,6 +51,7 @@ let playingSynthBass = false;
 let playingSynth3 = false;
 let playingSynth5 = false;
 let playingSynth7 = false;
+let playedSuccess = false;
 // using JavaScript built in hash table Map
 const localPred = new Map();
 const circleList = [];
@@ -287,12 +289,15 @@ function translateCoords(vidCoordsX, vidCoordsY, mediasource, canvas){
 //=========================================
 // TONE & Song helper methods
 //buffer1 = new Tone.Buffer("https://cdn.pixabay.com/audio/2022/10/05/audio_1c7fba0237.mp3");
-buffer2 = new Tone.Buffer("https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3"); // clink for level 1
+buffer2 = new Tone.Buffer("https://cdn.pixabay.com/audio/2022/03/10/audio_9fe79df036.mp3"); // clink for level 1
 buffer3 = new Tone.Buffer("https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3"); // puzzle piece click for level 2
 buffer4 = new Tone.Buffer("https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3"); // when a user successfully touches a line
+buffer5 = new Tone.Buffer("https://cdn.pixabay.com/audio/2022/03/10/audio_f96ec71310.mp3");
+
 function initSounds(){
     sounds = new Tone.Players( {
         "background": "https://cdn.pixabay.com/audio/2022/10/05/audio_1c7fba0237.mp3",
+        "ballSuccess": buffer5,
         "clink": buffer2,
         "click2": buffer3,
         "freezing": buffer4,
@@ -301,15 +306,28 @@ function initSounds(){
 }
 function playSong(){
     // sounds.player("background").start();
-    
+    const backgroundVol = new Tone.Volume(-20).toDestination();
+    sounds.player("background").connect(backgroundVol);
     sounds.player("background").loop = true;
     sounds.player("background").autostart = true;
     console.log("playing background");
 }
 
-function playSound(key){
+//let soundVolume = new Tone.Volume(0).toDestination();
+function playSound(key, volume){
+    if (volume === null){
+        volume = 0;
+    }
+    //console.log(volume);
+    //soundVolume.volume.rampTo(volume);
     // pass in the key for the players dict
-    sounds.player(key).start();
+    if (Tone.context.currentTime != prevSoundTime){
+        sounds.player(key).volume.rampTo(volume);
+        sounds.player(key).start(Tone.context.currentTime);
+        //console.log(sounds.player(key).volume.value);
+        prevSoundTime = Tone.context.currentTime;
+    }
+    
 }
 // =======================================
 // HANDTRACKING HELPER METHODS
@@ -390,10 +408,11 @@ function makeSmallCircles(){
     for (let [key, value] of localPred) {
         if (levelOne){
             context.strokeStyle = `rgba(255, 255, 255, 1)`;
+            context.fillStyle = `rgba(255, 255, 255, 1)`;
         } else {
             context.strokeStyle = `rgba(255, 255, 255, 1)`;
+            context.fillStyle = `rgba(0, 0, 0, 1)`;
         }
-        context.fillStyle = `rgba(0, 0, 0, 1)`;
         context.beginPath();
         context.arc(value.x, value.y, 5, 0, 2 * Math.PI);
         context.stroke();
@@ -590,6 +609,7 @@ function getRandomSign(){
 // ================================================
 // LEVEL ONE
 function initCircles() {
+    playedSuccess = false;
     bubbleRadius = 20; 
     for (let i = 0; i < totalCircles; i++){
         circleList[i] = Object.create(circle);
@@ -749,22 +769,22 @@ function getNewCircleCoords(canvas, predictions, mediasource){
             if (onTop){
                 circleList[j].yVelocity = circleList[j].yVelocity * -1;
                 circleList[j].yCoords = canvas.height - circleList[j].radius - 1;
-                //playClink(circleList[j]);
+                playSound("clink", -30);
             }
             if (onBottom){
                 circleList[j].yCoords = circleList[j].radius + 1;
                 circleList[j].yVelocity = circleList[j].yVelocity * -1;
-                //playClink(circleList[j]);
+                playSound("clink", -30);
             }
             if (onLeft){
                 circleList[j].xVelocity = circleList[j].xVelocity * -1;
                 circleList[j].xCoords = circleList[j].radius + 1;
-                //playClink(circleList[j]);
+                playSound("clink", -30);
             }
             if (onRight){
                 circleList[j].xVelocity = circleList[j].xVelocity * -1;
                 circleList[j].xCoords = canvas.width - circleList[j].radius - 1;
-                //playClink(circleList[j]);
+                playSound("clink", -30);
             }
         }
         circleList[j].xCoords = circleList[j].xCoords + circleList[j].xVelocity;
@@ -774,6 +794,10 @@ function getNewCircleCoords(canvas, predictions, mediasource){
         if (circleList[j].launching && ((circleList[j].xCoords > canvas.width || circleList[j].xCoords < 0) || (circleList[j].yCoords > canvas.height || circleList[j].xCoords < 0))){
             circleList.splice(j, 1);
             circlesLeft -= 1; 
+            if (!playedSuccess){
+                playSound("ballSuccess", 0);
+                playedSuccess = true;
+            }
         }
     }
 }
@@ -808,20 +832,20 @@ function playClink(ball){
     }
 
 }
-const risingVolBass = new Tone.Volume(-10).toDestination();
+const risingVolBass = new Tone.Volume(0).toDestination();
 const risingSynthBass = new Tone.Synth().connect(risingVolBass);
-const risingVol3 = new Tone.Volume(-10).toDestination();
+const risingVol3 = new Tone.Volume(0).toDestination();
 const risingSynth3 = new Tone.Synth().connect(risingVol3);
-const risingVol5 = new Tone.Volume(-10).toDestination();
+const risingVol5 = new Tone.Volume(0).toDestination();
 const risingSynth5 = new Tone.Synth().connect(risingVol5);
-const risingVol7 = new Tone.Volume(-10).toDestination();
+const risingVol7 = new Tone.Volume(0).toDestination();
 const risingSynth7 = new Tone.Synth().connect(risingVol7);
 function playCollection(){
     // synth tone that is played when a user starts collecting circles
-    bassLine = getLine(0, -20, totalCircles, 20);
-    thirdLine = getLine( 3 * totalCircles / 4, -20, totalCircles, 20);
-    fifthLine = getLine(totalCircles / 3, -20, totalCircles, 20);
-    seventhLine = getLine(totalCircles * 0.85, -20, totalCircles, 20);
+    bassLine = getLine(0, -20, totalCircles, 10);
+    thirdLine = getLine( 3 * totalCircles / 4, -20, totalCircles, 10);
+    fifthLine = getLine(totalCircles / 3, -20, totalCircles, 10);
+    seventhLine = getLine(totalCircles * 0.85, -20, totalCircles, 10);
     risingVolBass.volume.rampTo(bassLine[0] * countCirclesNearHand + bassLine[1], 1); 
     risingVol3.volume.rampTo(thirdLine[0] * countCirclesNearHand + thirdLine[1], 1);
     risingVol5.volume.rampTo(fifthLine[0] * countCirclesNearHand + fifthLine[1], 1);;
@@ -996,7 +1020,7 @@ function readyToLock(edge){
     if (edge.xcur >= edge.x1 - edge.length){
         if (edge.xcur < edge.x1 + 6){
             if (edge.frozen){
-                edge.color = `rgba(255, 0, 0, 1)`;
+                edge.color = `rgba(255, 255, 255, 1)`;
             } else {
                 edge.color = `rgba(0, 255, 0, 1)`;
             }
@@ -1063,23 +1087,27 @@ function moveLines(){
         placeholder[i] = readyToLock(placeholder[i]);
         if (!placeholder[i].freezing && checkTouching(placeholder[i])){
             placeholder[i].freezing = true;
-            placeholder[i].color = `rgba(0, 0, 255, 1)`;
-            playSound("freezing");
+            placeholder[i].color = `rgba(255, 0, 0, 1)`;
+            playSound("freezing", 0);
         }
         if (!placeholder[i].frozen && placeholder[i].freezing){
             if (placeholder[i].xcur > placeholder[i].x1){
                 if (placeholder[i].m > 0){
+                    // positive slope
                     if ((placeholder[i].xcur * placeholder[i].m) + placeholder[i].b > placeholder[i].y1){
+                        // freeze when it locks in place
                         placeholder[i].frozen = true;
-                        placeholder[i].color = `rgba(255, 0, 0, 1)`;
+                        placeholder[i].color = `rgba(255, 255, 255, 1)`;
                         frozenEdges += 1; 
                         //console.log(frozenEdges);
                         //console.log(placeholder.length);
                     }
                 } else {
                     if ((placeholder[i].xcur * placeholder[i].m) + placeholder[i].b < placeholder[i].y1){
+                        // freeze when it locks in place
+                        // negative slope
                         placeholder[i].frozen = true;
-                        placeholder[i].color = `rgba(255, 0, 0, 1)`;
+                        placeholder[i].color = `rgba(255, 255, 255, 1)`;
                         frozenEdges += 1; 
                         //console.log(frozenEdges);
                         //console.log(placeholder.length);
@@ -1089,8 +1117,9 @@ function moveLines(){
         }
         
         if (placeholder[i].frozen){
-            
+            // each line is part of 2 triangles
             if (placeholder[placeholder[i].tri1side1].frozen && placeholder[placeholder[i].tri1side2].frozen){
+                // check if other 2 sides of first triangle are frozen, then make full tri
                 tri = placeholder[i].poly1;
                 context.fillStyle = `rgba(
                     ${pattern.polys[tri].color._rgb[0]},
@@ -1107,13 +1136,13 @@ function moveLines(){
                 context.stroke();
                 context.fill();
                 if(!placeholder[i].clicked){
-                    playSound("click2");
+                    playSound("ballSuccess", 0);
                     placeholder[i].clicked = true;
                 }
                 
             } 
             if (placeholder[i].tri2side1 && placeholder[placeholder[i].tri2side1].frozen && placeholder[placeholder[i].tri2side2].frozen){
-                
+                // check if other 2 sides of second triangle are frozen, then make full tri
                 tri = placeholder[i].poly2;
                 context.fillStyle = `rgba(
                     ${pattern.polys[tri].color._rgb[0]},
@@ -1130,18 +1159,18 @@ function moveLines(){
                 context.stroke();
                 context.fill();
                 if(!placeholder[i].clicked){
-                    playSound("click2");
+                    //playSound("click2");
                     placeholder[i].clicked = true;
                 }
                 
             }
-            if (!placeholder[placeholder[i].tri1side1].frozen && placeholder[i].tri2side1 && !placeholder[placeholder[i].tri2side1].frozen){
-                x1 = placeholder[i].x1;
-                y1 = placeholder[i].y1;
-                x2 = placeholder[i].x2;
-                y2 = placeholder[i].y2;
-                drawLine(x1, y1, x2, y2, placeholder[i].color);
-            }
+            //if (!placeholder[placeholder[i].tri1side1].frozen && placeholder[i].tri2side1 && !placeholder[placeholder[i].tri2side1].frozen){
+            x1 = placeholder[i].x1;
+            y1 = placeholder[i].y1;
+            x2 = placeholder[i].x2;
+            y2 = placeholder[i].y2;
+            drawLine(x1, y1, x2, y2, placeholder[i].color);
+            //}
 
         } else {
             x1 = placeholder[i].xcur;
