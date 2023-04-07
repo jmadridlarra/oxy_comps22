@@ -173,6 +173,8 @@ function openFullscreen() {
   } else if (elem.msRequestFullscreen) { /* IE11 */
     elem.msRequestFullscreen();
   }
+  canvas.style.top = "0px";
+  canvas.style.left = "0px";
   resizeCanvas();
 }
 
@@ -206,6 +208,7 @@ resizeCanvas();
 function resizeCanvas() {
     canvas.width =  window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
     canvas.height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+    
     //redraw();
 }
 
