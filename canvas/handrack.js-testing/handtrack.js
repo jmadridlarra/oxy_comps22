@@ -190,9 +190,12 @@ function closeFullscreen() {
 }
 
 document.body.addEventListener('keypress', function(e) {
-    console.log("a key");
+    console.log(e.key);
     if (e.key == "Enter") {
       closeFullscreen();
+    }
+    if (e.key == 1){
+        switchLevel();
     }
   });
 
