@@ -300,6 +300,7 @@ function switchLevel(){
         levelOne = true;
     }
     reset();
+    resizeCanvas();
 }
 
 // runs the model
