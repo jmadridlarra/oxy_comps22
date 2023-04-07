@@ -159,6 +159,77 @@ const rect = {
     finished: false, // has the rect been rotated to its final position
 }
 
+//full screen
+// from https://www.w3schools.com/jsref/met_element_exitfullscreen.asp
+/* Get the documentElement (<html>) to display the page in fullscreen */
+var elem = document.documentElement;
+
+/* View in fullscreen */
+function openFullscreen() {
+  if (elem.requestFullscreen) {
+    elem.requestFullscreen();
+  } else if (elem.webkitRequestFullscreen) { /* Safari */
+    elem.webkitRequestFullscreen();
+  } else if (elem.msRequestFullscreen) { /* IE11 */
+    elem.msRequestFullscreen();
+  }
+  resizeCanvas();
+}
+
+/* Close fullscreen */
+function closeFullscreen() {
+  if (document.exitFullscreen) {
+    document.exitFullscreen();
+  } else if (document.webkitExitFullscreen) { /* Safari */
+    document.webkitExitFullscreen();
+  } else if (document.msExitFullscreen) { /* IE11 */
+    document.msExitFullscreen();
+  }
+}
+
+document.body.addEventListener('keypress', function(e) {
+    console.log("a key");
+    if (e.key == "Enter") {
+      closeFullscreen();
+    }
+  });
+
+// from https://stackoverflow.com/questions/1664785/resize-html5-canvas-to-fit-window
+function initialize() {
+// Register an event listener to call the resizeCanvas() function 
+// each time the window is resized.
+window.addEventListener('resize', resizeCanvas, false);
+// Draw canvas border for the first time.
+resizeCanvas();
+}
+
+function resizeCanvas() {
+    canvas.width =  window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+    canvas.height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+    //redraw();
+}
+
+// window.onkeypress = keypress;
+
+// function keypress(event) {
+//   if (event.key === 'Escape') {
+//     console.log("esc pressed");
+//   }
+// }
+
+// document.onkeydown=function(e){
+//     if(e == 27) {
+//      console.log("escape");
+//     }
+// }
+
+// document.onkeydown=function(e){
+//     if(e.which == 27) {
+//      hidediv();
+//      return false;
+//     }
+// }
+
 // starts video
 function startVideo() {
     handTrack.startVideo(video).then(function (status) {
@@ -568,7 +639,8 @@ function getLine(x1, y1, x2, y2){
 }
 
 function testFunc(){
-    showVid();
+    //showVid();
+    openFullscreen();
 }
 
 function reset(){
