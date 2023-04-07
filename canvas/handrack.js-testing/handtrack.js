@@ -208,6 +208,9 @@ resizeCanvas();
 function resizeCanvas() {
     canvas.width =  window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
     canvas.height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+    console.log(canvas.height);
+    canvas.height+= document.getElementById("topDiv").offsetHeight;
+    console.log(canvas.height);
     
     //redraw();
 }

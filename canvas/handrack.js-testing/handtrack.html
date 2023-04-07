@@ -4,7 +4,8 @@
 
 <head>
     <title>Testing Handtrack.js for Computational Queries </title>
-    <div class="mb10">
+    <div id="topDiv">
+      <div class="mb10">
         <button onclick="startGame()" id="trackbutton" class="bx--btn bx--btn--secondary" type="button">
           Start Game
         </button>
@@ -22,9 +23,13 @@
           </button>
         <div id="updatenote" class="updatenote mt10"> loading model ..</div>
       </div>
+    <div>
+      <video class="videobox canvasbox" autoplay="autoplay" id="myvideo"></video>
 
-    <video class="videobox canvasbox" autoplay="autoplay" id="myvideo"></video>
+    </div>
 
+    </div>
+    
     <canvas id="canvas" class="border canvasbox" style='position:absolute; bottom:0px; right:0px;'></canvas>
     <div id="status">Console.log status</div>
 
