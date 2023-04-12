@@ -209,8 +209,8 @@ resizeCanvas();
 }
 
 function resizeCanvas() {
-    canvas.width =  window.screen.width;//window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
-    canvas.height = window.screen.height; //window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+    canvas.width =  window.screen.width || window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+    canvas.height = window.screen.width || window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
     
     //redraw();
 }
@@ -1119,46 +1119,87 @@ function checkTouching(edge){
     //color = `rgba(255, 255, 255, 1)`;
     if (edge.color == `rgba(0, 255, 0, 1)`){
         for (let [key, value] of localPred) {
-            if (edge.y2 > edge.y1){
-                // negative slope
-                minx = edge.xcur;
-                miny = (edge.m * edge.xcur) + edge.b;
+            if (edge.x1 < edge.x2){
+                minx = edge.x1;
                 maxx = edge.x2;
-                maxy = edge.y2;
-                if (value.x + 5 > minx && value.x - 5 < maxx && value.y + 5 > miny && value.y - 5 < maxy){
-                    // in the rect
-                    if (value.x - 5 > minx + size && value.y + 5 < maxy - size){
-                        // top right triangle
-                        touching = false;
-                    } else if (value.x + 5 < maxx - size && value.y - 5 > miny + size){
-                        // left bottom triangle
-                        touching = false;
-                    } else {
-                        return true;
+            }else{
+                minx = edge.x2;
+                maxx = edge.x1;
+            }
+            if (value.x >= minx - edge.length){
+                // in green space or past possible
+                if (value.x < maxx + size){
+                    // in green space
+                    if (value.x * edge.m + edge.b < value.y + size && value.x * edge.m + edge.b > value.y - size){
+                        touching = true;
                     }
-                    
-                } else {
+                }else {
+                    // past possible
                     touching = false;
                 }
+
             } else {
-                // positive slope
-                minx = edge.xcur;
-                miny = edge.y2;
-                maxx = edge.x2;
-                maxy = (edge.m * edge.xcur) + edge.b;
-                if (value.x + 5 > minx && value.x - 5 < maxx && value.y + 5 > miny && value.y - 5 < maxy){
-                    // in the rect
-                    if (value.x + 5 < maxx - size && value.y + 5 < maxy - size){
-                        // top left triangle
-                        touching = false;
-                    } else if (value.x - 5 > minx + size && value.y - 5 > miny + size){
-                        //  bottom right triangle
-                        touching = false;
-                    } else {
-                        return true;
-                    }
-                }
+                touching = false;
             }
+            
+            
+            // if (edge.y2 > edge.y1){
+            //     // negative slope
+            //     minx = edge.xcur;
+            //     miny = (edge.m * edge.xcur) + edge.b;
+            //     maxx = edge.x2;
+            //     maxy = edge.y2;
+            //     context.strokeStyle = `rgba(255, 255, 255, 1)`;
+            //     context.fillRect(minx, maxy, maxx-minx, maxy-miny);
+
+            //     if (value.x + 5 > minx && value.x - 5 < maxx && value.y + 5 > miny && value.y - 5 < maxy){
+            //         // in the rect
+            //         if (value.x - 5 > minx + size && value.y + 5 < maxy - size){
+            //             // top right triangle
+            //             context.beginPath();
+            //             context.moveTo(minx + size, maxy - size);
+            //             context.lineTo(maxx + size, miny - size);
+            //             context.closePath();
+            //             context.stroke();
+
+            //             touching = false;
+            //         } else if (value.x + 5 < maxx - size && value.y - 5 > miny + size){
+            //             // left bottom triangle
+            //             touching = false;
+            //             context.beginPath();
+            //             context.moveTo(minx - size, maxy + size);
+            //             context.lineTo(maxx - size, miny + size);
+            //             context.closePath();
+            //             context.stroke();
+            //         } else {
+            //             return true;
+            //         }
+                    
+            //     } else {
+            //         touching = false;
+            //     }
+            // } else {
+            //     // positive slope
+            //     minx = edge.xcur;
+            //     miny = edge.y2;
+            //     maxx = edge.x2;
+            //     maxy = (edge.m * edge.xcur) + edge.b;
+
+            //     context.strokeStyle = `rgba(255, 255, 255, 1)`;
+            //     context.fillRect(minx, miny, maxx-minx, maxy-miny);
+            //     if (value.x + 5 > minx && value.x - 5 < maxx && value.y + 5 > miny && value.y - 5 < maxy){
+            //         // in the rect
+            //         if (value.x + 5 < maxx - size && value.y + 5 < maxy - size){
+            //             // top left triangle
+            //             touching = false;
+            //         } else if (value.x - 5 > minx + size && value.y - 5 > miny + size){
+            //             //  bottom right triangle
+            //             touching = false;
+            //         } else {
+            //             return true;
+            //         }
+            //     }
+            // }
             
         }
     }
