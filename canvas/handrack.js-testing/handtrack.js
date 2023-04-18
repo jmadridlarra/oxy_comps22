@@ -103,7 +103,9 @@ const edge = {
     velocity: 15,
     frozen: false,
     freezing: false,
-    color: `rgba(135, 206, 250, 1)`, // light blue
+    a: 0,
+    color: `rgba(135, 206, 250, `, // light blue
+
     clicked: false,
 }
 
@@ -138,9 +140,11 @@ var dTriangulation;
 
 //========================================
 // LEVEL FOUR global vars
+let countFinished = 0;
 let rectangleList = [];
 let active = [];
 let rate = 0;
+let levelFourDone = false;
 const rect = {
     x: canvas.width / 2,
     y: canvas.height / 2,
@@ -210,7 +214,7 @@ resizeCanvas();
 
 function resizeCanvas() {
     canvas.width =  window.screen.width || window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
-    canvas.height = window.screen.width || window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+    canvas.height = window.screen.height || window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
     
     //redraw();
 }
@@ -286,6 +290,8 @@ function showVid() {
 }
 
 function switchLevel(){
+    console.log(canvas.width);
+    console.log(canvas.height);
     if (levelOne){
         levelOne = false;
         levelTwo = true;
@@ -300,7 +306,9 @@ function switchLevel(){
         levelOne = true;
     }
     reset();
+    
     resizeCanvas();
+    console.log(canvas.height);
 }
 
 // runs the model
@@ -357,6 +365,10 @@ function updateFrame(canvas, predictions, video){
         //growRects();
         //console.log("drawing rects");
         drawRects();
+        if (countFinished == rectangleList.length){
+            levelFourDone = true;
+            //switchLevel();
+        }
     }
     // creates the shadow avatar visual representation of the user's hands on the screen as hollow circles
     makeSmallCircles(predictions, video, canvas);
@@ -409,7 +421,9 @@ function playSound(key, volume){
         sounds.player(key).start(Tone.context.currentTime);
         //console.log(sounds.player(key).volume.value);
         prevSoundTime = Tone.context.currentTime;
+        return true;
     }
+    return false;
     
 }
 // =======================================
@@ -654,7 +668,7 @@ function reset(){
     sounds.stopAll();
     initSounds();
     localPred.clear();
-    context.clearRect(0, 0, context.canvas.width, context.canvas.height);
+    context.clearRect(0, 0, canvas.width, canvas.height);
     context.beginPath();
     if (levelOne){
         countCirclesNearHand = 0;
@@ -670,10 +684,13 @@ function reset(){
         pattern = trianglify(options);
         console.log(pattern instanceof trianglify.Pattern); // true
         generateTriangles(canvas);
+        console.log()
         
     } else if (levelThree){
         initBlobs();
     } else {
+        levelFourDone = false;
+        countFinished = 0;
         playSong();
         active = [];
         rectangleList = [];
@@ -702,6 +719,7 @@ function initCircles() {
         circleList[i].radius = bubbleRadius;
         circleList[i].xVelocity = ((Math.random() * defaultSpeed * 2) - defaultSpeed) / getFPS();
         circleList[i].yVelocity = ((Math.random() * defaultSpeed * 2)- defaultSpeed) / getFPS();
+        circleList[i].a = 0;
     }
 }
 
@@ -738,7 +756,9 @@ function setCircleColor(circle){
             bline = getLine(0, 191, 30, 0);
             circle.b = (circle.yVelocity * bline[0]) + bline[1];
         }
-    } else {
+    } else if (circle.a < 1){
+        circle.a += 0.1;
+    }else {
         // white
         circle.r = 255;
         circle.g = 255;
@@ -1006,13 +1026,14 @@ function setEdge(i, j, k){
     curEdge.y1 = pattern.points[pattern.polys[i].vertexIndices[one]][1];
     curEdge.x2 = pattern.points[pattern.polys[i].vertexIndices[two]][0];
     curEdge.y2 = pattern.points[pattern.polys[i].vertexIndices[two]][1];
+    curEdge.a = 0;
     curEdge.xcur = Math.floor(Math.random() * canvas.width);
     curEdge.poly1 = i;
     curEdge.length = curEdge.x2 - curEdge.x1;
     curEdge.velocity = 5;
     if (curEdge.x1 < 0 || curEdge.x1 > canvas.width || curEdge.x2 < 0 || curEdge.x2 > canvas.width || curEdge.y1 < 0 || curEdge.y1 > canvas.height || curEdge.y2 < 0 || curEdge.y2 > canvas.height){
-        curEdge.frozen = true;
-        curEdge.color = `rgba(255, 255, 255, 1)`
+        curEdge.freezing = true;
+        curEdge.color = `rgba(255, 255, 255, `;
         curEdge.clicked = true;
         frozenEdges += 1;
     }else {
@@ -1052,7 +1073,7 @@ function addEdges(possible_edges){
 let placeholder = [];
 function generateTriangles(canvas){
     // this is only done at the beginning of the level
-    pattern.toCanvas(canvas);
+    //pattern.toCanvas(canvas);
     for (let i = 0; i < pattern.polys.length; i++){
         edge1 = setEdge(i, 0, 1);
         edge2 = setEdge(i, 1, 2);
@@ -1090,8 +1111,11 @@ function displayTriangles(){
     context.fill();
 }
 
-function drawLine(x1, y1, x2, y2, stroke=`rgba(255, 255, 255, 1)`){
-    context.strokeStyle = stroke;
+function drawLine(x1, y1, x2, y2, edge){
+    if (edge.a < 1){
+        edge.a = edge.a + 0.1;
+    }
+    context.strokeStyle = edge.color + edge.a + `)`;
     context.beginPath();
     context.moveTo(x1, y1);
     context.lineTo(x2, y2);
@@ -1100,13 +1124,13 @@ function drawLine(x1, y1, x2, y2, stroke=`rgba(255, 255, 255, 1)`){
 }
 
 function readyToLock(edge){
-    edge.color = `rgba(135, 206, 250, 1)`; // what color is this?
+    edge.color = `rgba(135, 206, 250, `; // what color is this?
     if (edge.xcur >= edge.x1 - edge.length){
         if (edge.xcur < edge.x1 + 6){
             if (edge.frozen){
-                edge.color = `rgba(255, 255, 255, 1)`;
+                edge.color = `rgba(255, 255, 255, `;
             } else {
-                edge.color = `rgba(0, 255, 0, 1)`;
+                edge.color = `rgba(0, 255, 0, `;
             }
         } 
     } 
@@ -1117,7 +1141,7 @@ function checkTouching(edge){
     size = 6;
     touching = false;
     //color = `rgba(255, 255, 255, 1)`;
-    if (edge.color == `rgba(0, 255, 0, 1)`){
+    if (edge.color == `rgba(0, 255, 0, `){
         for (let [key, value] of localPred) {
             if (edge.x1 < edge.x2){
                 minx = edge.x1;
@@ -1209,10 +1233,11 @@ function checkTouching(edge){
 
 function moveLines(){
     for (let i = 0; i<placeholder.length; i++){ 
+        if (placeholder[i])
         placeholder[i] = readyToLock(placeholder[i]);
         if (!placeholder[i].freezing && checkTouching(placeholder[i])){
             placeholder[i].freezing = true;
-            placeholder[i].color = `rgba(255, 0, 0, 1)`;
+            placeholder[i].color = `rgba(255, 0, 0, `;
             playSound("freezing", 0);
         }
         if (!placeholder[i].frozen && placeholder[i].freezing){
@@ -1222,7 +1247,7 @@ function moveLines(){
                     if ((placeholder[i].xcur * placeholder[i].m) + placeholder[i].b > placeholder[i].y1){
                         // freeze when it locks in place
                         placeholder[i].frozen = true;
-                        placeholder[i].color = `rgba(255, 255, 255, 1)`;
+                        placeholder[i].color = `rgba(255, 255, 255, `;
                         frozenEdges += 1; 
                         //console.log(frozenEdges);
                         //console.log(placeholder.length);
@@ -1232,7 +1257,7 @@ function moveLines(){
                         // freeze when it locks in place
                         // negative slope
                         placeholder[i].frozen = true;
-                        placeholder[i].color = `rgba(255, 255, 255, 1)`;
+                        placeholder[i].color = `rgba(255, 255, 255, `;
                         frozenEdges += 1; 
                         //console.log(frozenEdges);
                         //console.log(placeholder.length);
@@ -1261,7 +1286,9 @@ function moveLines(){
                 context.stroke();
                 context.fill();
                 if(!placeholder[i].clicked){
-                    playSound("ballSuccess", 0);
+                    if (!playSound("ballSuccess", 0)){
+                        playSound("ballSuccess", 0);
+                    }
                     placeholder[i].clicked = true;
                 }
                 
@@ -1284,7 +1311,9 @@ function moveLines(){
                 context.stroke();
                 context.fill();
                 if(!placeholder[i].clicked){
-                    //playSound("click2");
+                    if (!playSound("ballSuccess", 0)){
+                        playSound("ballSuccess", 0.05);
+                    }
                     placeholder[i].clicked = true;
                 }
                 
@@ -1294,7 +1323,7 @@ function moveLines(){
             y1 = placeholder[i].y1;
             x2 = placeholder[i].x2;
             y2 = placeholder[i].y2;
-            drawLine(x1, y1, x2, y2, placeholder[i].color);
+            drawLine(x1, y1, x2, y2, placeholder[i]);
             //}
 
         } else {
@@ -1302,7 +1331,7 @@ function moveLines(){
             y1 = (x1 * placeholder[i].m) + placeholder[i].b;
             x2 = placeholder[i].xcur + placeholder[i].length;
             y2 = (x2 * placeholder[i].m) + placeholder[i].b;
-            drawLine(x1, y1, x2, y2, placeholder[i].color);
+            drawLine(x1, y1, x2, y2, placeholder[i]);
            
             if (x1 > canvas.width){
                 placeholder[i].xcur = -1 * Math.abs(placeholder[i].length);
@@ -1592,7 +1621,7 @@ function getPointOnSeg(segment, t){
 // ================================================
 // LEVEL FOUR
 function initRects(){
-    for (let i = 0; i < 10; i++){
+    for (let i = 0; i < 5; i++){
         rectangleList[i] = Object.create(rect);
         rectangleList[i].x = canvas.width / 2;
         rectangleList[i].y = canvas.height / 2;
@@ -1655,6 +1684,7 @@ function checkIfRotate(){
 
 function getPointCoords(rect){
     // calculating current point location after rotation
+    //active[i].x - (width / 2), active[i].y - (height / 2), width, height
     width = rect.scale * calcMinWidth(rect) / 100;
     height = width * 1.5;
     A = [(canvas.width / 2) - (width / 2), (canvas.height / 2) - (height / 2)];
@@ -1662,23 +1692,25 @@ function getPointCoords(rect){
     C = [(canvas.width / 2) + (width / 2), (canvas.height / 2) + (height / 2)];
     D = [(canvas.width / 2) - (width / 2), (canvas.height / 2) + (height / 2) ];
 
-    if (rect.rotateBy < 90){
-        return [rotatePoints(A, rect.rotateBy), rotatePoints(B, rect.rotateBy), rotatePoints(C, rect.rotateBy), rotatePoints(D, rect.rotateBy),];
-    } else if (rect.rotateBy < 180){
-        return [rotatePoints(B, rect.rotateBy), rotatePoints(C, rect.rotateBy), rotatePoints(D, rect.rotateBy), rotatePoints(A, rect.rotateBy),];
-    } else if (rect.rotateBy < 270){
-        return [rotatePoints(C, rect.rotateBy), rotatePoints(D, rect.rotateBy), rotatePoints(A, rect.rotateBy), rotatePoints(B, rect.rotateBy),];
-    } else {
-        return [rotatePoints(D, rect.rotateBy), rotatePoints(A, rect.rotateBy), rotatePoints(B, rect.rotateBy), rotatePoints(C, rect.rotateBy),];
-    }
+    return [rotatePoints(A, rect.rotateBy), rotatePoints(B, rect.rotateBy), rotatePoints(C, rect.rotateBy), rotatePoints(D, rect.rotateBy),]
+    // if (rect.rotateBy < 90){
+    //     return [rotatePoints(A, rect.rotateBy), rotatePoints(B, rect.rotateBy), rotatePoints(C, rect.rotateBy), rotatePoints(D, rect.rotateBy),];
+    // } else if (rect.rotateBy < 180){
+    //     return [rotatePoints(B, rect.rotateBy), rotatePoints(C, rect.rotateBy), rotatePoints(D, rect.rotateBy), rotatePoints(A, rect.rotateBy),];
+    // } else if (rect.rotateBy < 270){
+    //     return [rotatePoints(C, rect.rotateBy), rotatePoints(D, rect.rotateBy), rotatePoints(A, rect.rotateBy), rotatePoints(B, rect.rotateBy),];
+    // } else {
+    //     return [rotatePoints(D, rect.rotateBy), rotatePoints(A, rect.rotateBy), rotatePoints(B, rect.rotateBy), rotatePoints(C, rect.rotateBy),];
+    // }
 }
 
 function rotatePoints(point, rotation){
     // converting the original rect points to calculate current points after rotation
     // translate to rotate about a point that is not the origin
+    rad_rot = rotation * Math.PI / 180;
     translated_point = [point[0] - (canvas.width / 2), point[1] - (canvas.height / 2)]
-    x = (translated_point[0] * Math.cos(rotation)) - (translated_point[1] * Math.sin(rotation));
-    y = (translated_point[1] * Math.cos(rotation)) + (translated_point[0] * Math.sin(rotation));
+    x = (translated_point[0] * Math.cos(rad_rot)) - (translated_point[1] * Math.sin(rad_rot));
+    y = (translated_point[1] * Math.cos(rad_rot)) + (translated_point[0] * Math.sin(rad_rot));
     return [x + (canvas.width / 2), y + (canvas.height / 2)];
 }
 
@@ -1688,11 +1720,43 @@ function checkCollision(hand){
     points = getPointCoords(rect);
     let S = [hand.x, hand.y];
     rateOfRotation = 2;
-    if (rect.rotateBy % 180 < 95 && rect.rotateBy % 180 > 85){
+    if (Math.abs(rect.rotateBy % 180) < 95 && Math.abs(rect.rotateBy % 180) > 85){
         rect.finished = true;
-        rect.rotateBy = rect.rotateBy - (rect.rotateBy % 90)
+        if (rect.rotateBy % 90 > 10){
+            rect.rotateBy = rect.rotateBy + (10 - (rect.rotateBy % 10));
+        } else {
+            rect.rotateBy = rect.rotateBy - (rect.rotateBy % 90);
+        }
+        countFinished += 1;
     }
-    
+    // context.strokeStyle = `rgba(255, 0, 0, 1)`
+    // context.beginPath();
+    // context.moveTo(points[0][0], points[0][1]);
+    // context.lineTo(points[1][0], points[1][1]);
+    // context.closePath();
+    // context.stroke();
+
+    // context.strokeStyle = `rgba(255, 0, 0, 1)`
+    // context.beginPath();
+    // context.moveTo(points[1][0], points[1][1]);
+    // context.lineTo(points[2][0], points[2][1]);
+    // context.closePath();
+    // context.stroke();
+
+    // context.strokeStyle = `rgba(255, 0, 0, 1)`
+    // context.beginPath();
+    // context.moveTo(points[2][0], points[2][1]);
+    // context.lineTo(points[3][0], points[3][1]);
+    // context.closePath();
+    // context.stroke();
+
+    // context.strokeStyle = `rgba(255, 0, 0, 1)`
+    // context.beginPath();
+    // context.moveTo(points[3][0], points[3][1]);
+    // context.lineTo(points[0][0], points[0][1]);
+    // context.closePath();
+    // context.stroke();
+    // console.log(points[0][0] + ", " + points[0][1]);
     if (intersectCircle(S, [points[0], points[1]])){
         left = calcSideOfIntersection(S, [points[0], points[1]], true);
         if (left){
@@ -1792,7 +1856,7 @@ function intersectCircle(point, line){
     //console.log(point[1] - (point[1] % 5));
     // we % 10 to allow for a 10px error
     //if ((line[0] * point[0] + line[1]) - ((line[0] * point[0] + line[1]) % 5) == point[1] - (point[1] % 5)){
-    if ((newLine[0] * point[0] + newLine[1]) - 3 < point[1] && (newLine[0] * point[0] + newLine[1]) + 3 > point[1]){
+    if ((newLine[0] * point[0] + newLine[1]) - 6 < point[1] && (newLine[0] * point[0] + newLine[1]) + 6 > point[1]){
         return true;
     } else {
         return false;
@@ -1811,7 +1875,12 @@ function growRects(hands){
         rate -= 0.05;
     }
     for (let i = 0; i < active.length; i++){
-        active[i].scale = active[i].scale + rate; // increasing at a rate of 20px per second 
+        if (active[i].finished){
+            active[i].scale = active[i].scale + (rate * 1.5);
+        } else {
+            active[i].scale = active[i].scale + rate; // increasing at a rate of 20px per second 
+        }
+        
         checkFilled(active[i]);
         if (i < active.length - 2 && active[i].filled){
             if (i != 0){
@@ -1859,7 +1928,14 @@ function asString(rectList){
 
 function readyForNext(rect){
     if (rect.scale >= calcMaxHeight(rect)){
-        return true;
+        if (levelFourDone){
+            if (rect.filled){
+                switchLevel();
+            }
+            return false;
+        } else {
+            return true;
+        } 
     } else {
         return false;
     }
@@ -1993,6 +2069,7 @@ function calcMinWidth(rect){
     }
     return line[0] * rotation + line[1];
 }
+
 // Load the model
 handTrack.load(modelParams).then(lmodel => {
     // detect objects in the image.
