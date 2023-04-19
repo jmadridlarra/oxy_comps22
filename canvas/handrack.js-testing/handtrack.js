@@ -18,8 +18,8 @@ const modelParams = {
     scoreThreshold: 0.65,    // confidence threshold for predictions.
 };
 
-let levelOne = true;
-let levelTwo = false;
+let levelOne = false;
+let levelTwo = true;
 let levelThree = false;
 let levelFour = false;
 
@@ -57,8 +57,8 @@ const localPred = new Map();
 const circleList = [];
 const circle = {
     isVisible : true,
-    xCoords: canvas.width / 2,
-    yCoords: canvas.height / 2,
+    xCoords: 10,
+    yCoords: 10,
     nearHand: false,
     radius: 40,
     yVelocity: defaultSpeed,
@@ -161,6 +161,7 @@ const rect = {
     index: 0,
     filled: false, // has the rect filled the canvas?
     finished: false, // has the rect been rotated to its final position
+    playedFinish: false,
 }
 
 //full screen
@@ -384,9 +385,10 @@ function translateCoords(vidCoordsX, vidCoordsY, mediasource, canvas){
 // TONE & Song helper methods
 //buffer1 = new Tone.Buffer("https://cdn.pixabay.com/audio/2022/10/05/audio_1c7fba0237.mp3");
 buffer2 = new Tone.Buffer("https://cdn.pixabay.com/audio/2022/03/10/audio_9fe79df036.mp3"); // clink for level 1
-buffer3 = new Tone.Buffer("https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3"); // puzzle piece click for level 2
+buffer3 = new Tone.Buffer("https://cdn.pixabay.com/audio/2023/02/28/audio_52ccaf1a85.mp3"); // puzzle piece click for level 4
 buffer4 = new Tone.Buffer("https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3"); // when a user successfully touches a line
 buffer5 = new Tone.Buffer("https://cdn.pixabay.com/audio/2022/03/10/audio_f96ec71310.mp3");
+buffer6 = new Tone.Buffer("https://cdn.pixabay.com/audio/2021/08/03/audio_2d01f5f5b9.mp3");
 
 function initSounds(){
     sounds = new Tone.Players( {
@@ -395,6 +397,7 @@ function initSounds(){
         "clink": buffer2,
         "click2": buffer3,
         "freezing": buffer4,
+        "turning": buffer6, 
     }).toDestination();
     //sounds.player("clink").autostart = true; 
 }
@@ -711,12 +714,12 @@ function getRandomSign(){
 // LEVEL ONE
 function initCircles() {
     playedSuccess = false;
-    bubbleRadius = 20; 
+    //bubbleRadius = 20; 
     for (let i = 0; i < totalCircles; i++){
         circleList[i] = Object.create(circle);
         circleList[i].xCoords = Math.floor(Math.random() * canvas.width);
         circleList[i].yCoords = Math.floor(Math.random() * canvas.height);
-        circleList[i].radius = bubbleRadius;
+        circleList[i].radius = (Math.random() * 10) + 18;
         circleList[i].xVelocity = ((Math.random() * defaultSpeed * 2) - defaultSpeed) / getFPS();
         circleList[i].yVelocity = ((Math.random() * defaultSpeed * 2)- defaultSpeed) / getFPS();
         circleList[i].a = 0;
@@ -759,7 +762,7 @@ function setCircleColor(circle){
     } else if (circle.a < 1){
         circle.a += 0.1;
     }else {
-        // white
+        // regular without interferance
         circle.r = 255;
         circle.g = 255;
         circle.b = 255;
@@ -955,7 +958,7 @@ function playCollection(){
     risingVol5.volume.rampTo(fifthLine[0] * countCirclesNearHand + fifthLine[1], 1);;
     risingVol7.volume.rampTo(seventhLine[0] * countCirclesNearHand + seventhLine[1], 1); 
     //risingVol.changeVolume();
-    if (!playingSynthBass){
+    if (!playingSynthBass && countCirclesNearHand > 0){
         console.log("playing bass synth")
         risingSynthBass.triggerAttack("F3"); // start the synth tone, we'll stop it elsewhere
         playingSynthBass = true;
@@ -980,14 +983,38 @@ function playCollection(){
 
 function makeCircle(circleObj) {
     // makes circles for level 1
-    context.fillStyle = `rgba(
-        ${circleObj.r},
-        ${circleObj.g},
-        ${circleObj.b}, 
-        ${circleObj.a})`;
+    // if (circleObj.r != "gradient"){
+    //     context.fillStyle = `rgba(
+    //         ${circleObj.r},
+    //         ${circleObj.g},
+    //         ${circleObj.b}, 
+    //         ${circleObj.a})`;
+    // } else {
+        var grd = context.createRadialGradient(circleObj.xCoords - 4, circleObj.yCoords - 6, 15, circleObj.xCoords - 12, circleObj.yCoords - 14, 30);
+        grd.addColorStop(0, `rgba(
+            ${circleObj.r},
+            ${circleObj.g},
+            ${circleObj.b}, 
+            ${circleObj.a})`);
+        //grd.addColorStop(0.85, "purple");
+        if (circleObj.r == 255 && circleObj.g == 255 && circleObj.b == 255){
+            grd.addColorStop(1, `rgba(207, 234, 252, ${circleObj.a}`);
+
+        } else {
+            grd.addColorStop(1, `rgba(
+                ${circleObj.r - 40},
+                ${circleObj.g - 40},
+                ${circleObj.b - 40}, 
+                ${circleObj.a})`);
+
+        }
+        
+        // Fill with gradient
+        context.fillStyle = grd;
+    // }
     context.beginPath();
     context.arc(circleObj.xCoords, circleObj.yCoords, circleObj.radius, 0, 2 * Math.PI);
-    context.stroke();
+    //context.stroke();
     context.fill();
 }
 //=====================================================================
@@ -1033,7 +1060,7 @@ function setEdge(i, j, k){
     curEdge.velocity = 5;
     if (curEdge.x1 < 0 || curEdge.x1 > canvas.width || curEdge.x2 < 0 || curEdge.x2 > canvas.width || curEdge.y1 < 0 || curEdge.y1 > canvas.height || curEdge.y2 < 0 || curEdge.y2 > canvas.height){
         curEdge.freezing = true;
-        curEdge.color = `rgba(255, 255, 255, `;
+        curEdge.color = `rgba(255, 0, 0, `;
         curEdge.clicked = true;
         frozenEdges += 1;
     }else {
@@ -1128,7 +1155,7 @@ function readyToLock(edge){
     if (edge.xcur >= edge.x1 - edge.length){
         if (edge.xcur < edge.x1 + 6){
             if (edge.frozen){
-                edge.color = `rgba(255, 255, 255, `;
+                edge.color = `rgba(255, 0, 0, `;
             } else {
                 edge.color = `rgba(0, 255, 0, `;
             }
@@ -1247,7 +1274,7 @@ function moveLines(){
                     if ((placeholder[i].xcur * placeholder[i].m) + placeholder[i].b > placeholder[i].y1){
                         // freeze when it locks in place
                         placeholder[i].frozen = true;
-                        placeholder[i].color = `rgba(255, 255, 255, `;
+                        placeholder[i].color = `rgba(255, 0, 0, `;
                         frozenEdges += 1; 
                         //console.log(frozenEdges);
                         //console.log(placeholder.length);
@@ -1257,7 +1284,7 @@ function moveLines(){
                         // freeze when it locks in place
                         // negative slope
                         placeholder[i].frozen = true;
-                        placeholder[i].color = `rgba(255, 255, 255, `;
+                        placeholder[i].color = `rgba(255, 0, 0, `;
                         frozenEdges += 1; 
                         //console.log(frozenEdges);
                         //console.log(placeholder.length);
@@ -1621,7 +1648,7 @@ function getPointOnSeg(segment, t){
 // ================================================
 // LEVEL FOUR
 function initRects(){
-    for (let i = 0; i < 5; i++){
+    for (let i = 0; i < 10; i++){
         rectangleList[i] = Object.create(rect);
         rectangleList[i].x = canvas.width / 2;
         rectangleList[i].y = canvas.height / 2;
@@ -1714,6 +1741,8 @@ function rotatePoints(point, rotation){
     return [x + (canvas.width / 2), y + (canvas.height / 2)];
 }
 
+let turning = 0;
+let framesStopped = 0;
 function checkCollision(hand){
     // check each side of rect and assess collision
     let rect = active[active.length - 1];
@@ -1722,13 +1751,21 @@ function checkCollision(hand){
     rateOfRotation = 2;
     if (Math.abs(rect.rotateBy % 180) < 95 && Math.abs(rect.rotateBy % 180) > 85){
         rect.finished = true;
-        if (rect.rotateBy % 90 > 10){
-            rect.rotateBy = rect.rotateBy + (10 - (rect.rotateBy % 10));
+        if (Math.abs(rect.rotateBy % 90) > 10){
+            if (rect.rotateBy > 0){
+                rect.rotateBy = rect.rotateBy + (10 - (rect.rotateBy % 10));
+            } else {
+                rect.rotateBy = rect.rotateBy - (10 - (Math.abs(rect.rotateBy % 10)));
+            }
+            
         } else {
             rect.rotateBy = rect.rotateBy - (rect.rotateBy % 90);
         }
         countFinished += 1;
+        sounds.player("turning").stop();
+        playSound("click2", 0);
     }
+    
     // context.strokeStyle = `rgba(255, 0, 0, 1)`
     // context.beginPath();
     // context.moveTo(points[0][0], points[0][1]);
@@ -1758,46 +1795,73 @@ function checkCollision(hand){
     // context.stroke();
     // console.log(points[0][0] + ", " + points[0][1]);
     if (intersectCircle(S, [points[0], points[1]])){
+        if (turning == 1){
+            playSound("turning", 0);
+        }
         left = calcSideOfIntersection(S, [points[0], points[1]], true);
         if (left){
             rect.rotateBy = rect.rotateBy - rateOfRotation;
-            console.log("AB counterclockwise")
+            console.log("AB counterclockwise");
+            turning += 1;
         } else {
             rect.rotateBy = rect.rotateBy + rateOfRotation;
-            console.log("AB clockwise")
+            console.log("AB clockwise");
+            turning += 1;
         }
         return true;
     } else if (intersectCircle(S, [points[1], points[2]])){
+        if (turning == 1){
+            playSound("turning", 0);
+        }
         top = calcSideOfIntersection(S, [points[1], points[2]], false);
         if (top){
             rect.rotateBy = rect.rotateBy - rateOfRotation;
-            console.log("BC counterclockwise")
+            console.log("BC counterclockwise");
+            turning += 1;
         } else {
             rect.rotateBy = rect.rotateBy + rateOfRotation;
-            console.log("BC clockwise")
+            console.log("BC clockwise");
+            turning += 1;
         }
         return true;
     } else if (intersectCircle(S, [points[2], points[3]])){
+        if (turning == 1){
+            playSound("turning", 0);
+        }
         left = calcSideOfIntersection(S, [points[2], points[3]], true);
         if (left){
             rect.rotateBy = rect.rotateBy + rateOfRotation;
-            console.log("CD clockwise")
+            console.log("CD clockwise");
+            turning += 1;
         } else {
             rect.rotateBy = rect.rotateBy - rateOfRotation;
-            console.log("CD counterclockwise")
+            console.log("CD counterclockwise");
+            turning += 1;
         }        
         return true;
     } else if (intersectCircle(S, [points[3], points[0]])){
+        if (turning == 1){
+            playSound("turning", 0);
+        }
         top = calcSideOfIntersection(S, [points[3], points[0]], false);
         if (top){
             rect.rotateBy = rect.rotateBy + rateOfRotation;
-            console.log("DA clockwise")
+            console.log("DA clockwise");
+            turning += 1;
         } else {
             rect.rotateBy = rect.rotateBy - rateOfRotation;
-            console.log("DA counterclockwise")
+            console.log("DA counterclockwise");
+            turning += 1;
         }        
         return true;
     } else {
+        framesStopped += 1;
+        if (turning > 0 && framesStopped > getFPS()){
+            sounds.player("turning").stop();
+            turning = false;
+            framesStopped = 0;
+            turning = 0;
+        }
         return false;
     }
 }
@@ -1868,6 +1932,8 @@ function growRects(hands){
     let finalRate = 2 / getFPS();
     if (hands){
         finalRate = 1 / (1.75 * getFPS());
+    } else {
+        sounds.player("turning").stop();
     }
     if (rate < finalRate){
         rate += 0.05;
@@ -1879,6 +1945,12 @@ function growRects(hands){
             active[i].scale = active[i].scale + (rate * 1.5);
         } else {
             active[i].scale = active[i].scale + rate; // increasing at a rate of 20px per second 
+        }
+        if (active[i].finished && !active[i].playedFinish){
+            if (playSound("ballSuccess", 0)){
+                active[i].playedFinish = true;
+            }
+            
         }
         
         checkFilled(active[i]);
@@ -1994,15 +2066,24 @@ function drawRects(){
         context.translate(-1 * canvas.width / 2, -1 * canvas.height / 2);
         turn = calcMaxHeight(active[i]);
         if (active[i].finished){
-            // you succeeded so it's green
-            context.fillStyle = `rgba(0, 255, 0
-                ${active[i].a})`
+            // you succeeded so it's black
+            // context.fillStyle = `rgba(0, 0, 0,
+            //     ${active[i].a})`
+            r = 0;
+            g = 0;
+            b = 0;
+            a = active[i].a;
         } else if (active[i].scale <= turn - 5){
-            context.fillStyle = `rgba(
-                ${active[i].r},
-                ${active[i].g},
-                ${active[i].b}, 
-                ${active[i].a})`;
+            // allows for the gradient fade
+            // context.fillStyle = `rgba(
+            //     ${active[i].r},
+                // ${active[i].g},
+                // ${active[i].b}, 
+                // ${active[i].a})`;
+            r = active[i].r;
+            g = active[i].g;
+            b = active[i].b;
+            a = active[i].a;
         }else {
             // console.log(active[i].rLine);
             // console.log(active[i].rLine === []);
@@ -2016,25 +2097,50 @@ function drawRects(){
             //console.log(active[i].rLine);
             if (active[i].scale > turn + 5){
                 grayValue = convertToGray(active[i].r, active[i].g, active[i].b);
-                context.fillStyle = `rgba(
-                    ${grayValue},
-                    ${grayValue},
-                    ${grayValue}, 
-                    ${active[i].a})`;
+                // context.fillStyle = `rgba(
+                //     ${grayValue},
+                //     ${grayValue},
+                //     ${grayValue}, 
+                //     ${active[i].a})`;
+                r = grayValue;
+                g = grayValue;
+                b = grayValue;
+                a = active[i].a;
             } else {
-                context.fillStyle = `rgba(
-                    ${active[i].rLine[0] * active[i].scale + active[i].rLine[1]},
-                    ${active[i].gLine[0] * active[i].scale + active[i].gLine[1]},
-                    ${active[i].bLine[0] * active[i].scale + active[i].bLine[1]}, 
-                    ${active[i].a})`;
+                // context.fillStyle = `rgba(
+                //     ${active[i].rLine[0] * active[i].scale + active[i].rLine[1]},
+                //     ${active[i].gLine[0] * active[i].scale + active[i].gLine[1]},
+                //     ${active[i].bLine[0] * active[i].scale + active[i].bLine[1]}, 
+                //     ${active[i].a})`;
+                r = active[i].rLine[0] * active[i].scale + active[i].rLine[1];
+                g = active[i].gLine[0] * active[i].scale + active[i].gLine[1];
+                b = active[i].bLine[0] * active[i].scale + active[i].bLine[1];
+                a = active[i].a;
             }
         }
+        width = active[i].scale * calcMinWidth(active[i]) / 100;
+        height = width * 1.5;
+
+        var grd = context.createRadialGradient(active[i].x, active[i].y, width / 6, active[i].x, active[i].y, height / 2);
+        grd.addColorStop(0, `rgba(
+            ${r},
+            ${g},
+            ${b}, 
+            ${a})`);
+        
+        grd.addColorStop(1, `rgba(
+            ${r - 40},
+            ${g - 40},
+            ${b - 40}, 
+            ${a})`);
+
+        // Fill with gradient
+        context.fillStyle = grd;
         // draw the second rectangle
         
         context.strokeStyle = `rgba(255, 255, 255, 1)`;
         //console.log(calcMinWidth(active[i]));
-        width = active[i].scale * calcMinWidth(active[i]) / 100;
-        height = width * 1.5;
+        
         //console.log("drawing rect");
         context.fillRect(active[i].x - (width / 2), active[i].y - (height / 2), width, height);
         context.strokeRect(active[i].x - (width / 2), active[i].y - (height / 2), width, height);
