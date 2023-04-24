@@ -2121,7 +2121,7 @@ function drawRects(){
         width = active[i].scale * calcMinWidth(active[i]) / 100;
         height = width * 1.5;
 
-        var grd = context.createRadialGradient(active[i].x, active[i].y, width / 6, active[i].x, active[i].y, height / 2);
+        var grd = context.createRadialGradient(active[i].x, active[i].y, Math.abs(width / 6), active[i].x, active[i].y, Math.abs(height / 2));
         grd.addColorStop(0, `rgba(
             ${r},
             ${g},
